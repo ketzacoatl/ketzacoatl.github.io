@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Adventures in Recovering Consul from Temporary Leadership Collision</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Adventures in Recovering Consul from Temporary Leadership Collision</h1>
+
+            <div class="info">
+    Posted on March  7, 2016
+    
+</div>
+
+<p>This is an exercise in recovering from an honest but potentially hazardous mistake: briefly joining together two consul clusters, each with their own leader. In this case, the new leader had nothing in its catalog, so it decided the catalog was now empty, ignoring the catalog from the previous master.</p>
+<p>That is not acceptable, so how do we repair? One method is to restore the catalog from backup, though this may have implications which warrant consideration, based on the nuances of your deployment. Either way, I took this as an opportunity to push on Consul’s limits to explore what was possible and what a recovery would look like (and because I was already sorely disappointed with similar failure scenarious from etcd, I wanted to see if Consul would do better).</p>
+<h3 id="restoring-an-older-snapshot">Restoring an older Snapshot</h3>
+<p>First we stop the leaders:</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'service consul stop'
+leaders-i-ac20797e:
+    consul stop/waiting
+leaders-i-e8a8190f:
+    consul stop/waiting
+leaders-i-0d4a32b5:
+    consul stop/waiting</code></pre>
+<p>Next, we review the existing snapshots:</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'ls -alh /home/consul/tmp/raft/snapshots'
+leaders-i-ac20797e:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  5 08:27 .
+    drwxr-x--- 3 consul consul 4.0K Oct 12 05:53 ..
+    drwxr-x--- 2 consul consul 4.0K Jan 22 20:56 221-155666-1453496179313
+    drwxr-x--- 2 consul consul 4.0K Mar  5 08:27 870-213018-1457166432286
+leaders-i-e8a8190f:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  6 19:52 .
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 ..
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:10 870-213018-1456917007147
+    drwxr-x--- 2 consul consul 4.0K Mar  6 19:52 877-219344-1457293933762
+leaders-i-0d4a32b5:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  2 11:14 .
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 ..
+    drwxr-x--- 2 consul consul 4.0K Feb 25 18:50 861-204830-1456426245436
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:14 870-213022-1456917280513</code></pre>
+<p>We’re going to fall back to the snapshot from “Mar 5 08:27 870-213018-1457166432286”, so we will remove the “Mar 6 19:52 877-219344-1457293933762” one:</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'mkdir /root/consul-recovery &amp;&amp; cp -rp /home/consul/tmp /root/consul-recovery/ &amp;&amp; mv /home/consul/tmp/raft/snapshots/877-219344-1457293933762 /root/consul-recovery/'
+leaders-i-ac20797e:
+    mv: cannot stat '/home/consul/tmp/raft/snapshots/877-219344-1457293933762': No such file or directory
+leaders-i-0d4a32b5:
+    mv: cannot stat '/home/consul/tmp/raft/snapshots/877-219344-1457293933762': No such file or directory
+leaders-i-e8a8190f:
+
+user@master:~# salt 'leaders*' cmd.run 'ls -alh /home/consul/tmp/raft/snapshots'
+leaders-i-ac20797e:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  5 08:27 .
+    drwxr-x--- 3 consul consul 4.0K Oct 12 05:53 ..
+    drwxr-x--- 2 consul consul 4.0K Jan 22 20:56 221-155666-1453496179313
+    drwxr-x--- 2 consul consul 4.0K Mar  5 08:27 870-213018-1457166432286
+leaders-i-e8a8190f:
+    total 12K
+    drwxr-x--- 3 consul consul 4.0K Mar  6 19:57 .
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 ..
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:10 870-213018-1456917007147
+leaders-i-0d4a32b5:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  2 11:14 .
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 ..
+    drwxr-x--- 2 consul consul 4.0K Feb 25 18:50 861-204830-1456426245436
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:14 870-213022-1456917280513</code></pre>
+<p>Great! now lets start them back up and see what happens</p>
+<p>Let’s check our backup first:</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'ls -alh /root/consul-recovery/'
+leaders-i-ac20797e:
+    total 12K
+    drwxr-x--- 3 user   root   4.0K Mar  6 19:56 .
+    drwx------ 5 user   root   4.0K Mar  6 19:56 ..
+    drwxr-x--- 5 consul consul 4.0K Mar  5 08:26 tmp
+leaders-i-0d4a32b5:
+    total 12K
+    drwxr-x--- 3 user   root   4.0K Mar  6 19:57 .
+    drwx------ 6 user   root   4.0K Mar  6 19:57 ..
+    drwxr-x--- 5 consul consul 4.0K Feb 18 08:58 tmp
+leaders-i-e8a8190f:
+    total 16K
+    drwxr-x--- 4 user   root   4.0K Mar  6 19:57 .
+    drwx------ 5 user   root   4.0K Mar  6 19:57 ..
+    drwxr-x--- 2 consul consul 4.0K Mar  6 19:52 877-219344-1457293933762
+    drwxr-x--- 5 consul consul 4.0K Feb 18 08:55 tmp</code></pre>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'ls -alh /root/consul-recovery/tmp/'
+leaders-i-ac20797e:
+    total 20K
+    drwxr-x--- 5 consul consul 4.0K Mar  5 08:26 .
+    drwxr-x--- 3 user   root   4.0K Mar  6 19:56 ..
+    drwxr-x--- 3 consul consul 4.0K Oct 12 05:53 raft
+    drwxr-x--- 2 consul consul 4.0K Oct 12 05:53 serf
+    drwxr-x--- 3 consul consul 4.0K Mar  5 08:27 tmp
+leaders-i-e8a8190f:
+    total 20K
+    drwxr-x--- 5 consul consul 4.0K Feb 18 08:55 .
+    drwxr-x--- 4 user   root   4.0K Mar  6 19:57 ..
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 raft
+    drwxr-x--- 2 consul consul 4.0K Oct  7 14:33 serf
+    drwxr-x--- 3 consul consul 4.0K Feb 18 08:55 tmp
+leaders-i-0d4a32b5:
+    total 20K
+    drwxr-x--- 5 consul consul 4.0K Feb 18 08:58 .
+    drwxr-x--- 3 user   root   4.0K Mar  6 19:57 ..
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 raft
+    drwxr-x--- 2 consul consul 4.0K Oct  7 14:33 serf
+    drwxr-x--- 3 consul consul 4.0K Feb 18 08:58 tmp</code></pre>
+<p>Next we need to select one of these leaders, and remove the data dir for the <em>others</em>:</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'ls -alh /home/consul/tmp/raft/snapshots'
+leaders-i-ac20797e:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  6 20:13 .
+    drwxr-x--- 3 consul consul 4.0K Oct 12 05:53 ..
+    drwxr-x--- 2 consul consul 4.0K Jan 22 20:56 221-155666-1453496179313
+    drwxr-x--- 2 consul consul 4.0K Mar  5 08:27 870-213018-1457166432286
+leaders-i-e8a8190f:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  6 20:14 .
+    drwxr-x--- 3 consul consul 4.0K Mar  6 20:13 ..
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:10 870-213018-1456917007147
+    drwxr-x--- 2 user   root   4.0K Mar  6 20:12 877-219344-1457293933762
+leaders-i-0d4a32b5:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  6 20:14 .
+    drwxr-x--- 3 consul consul 4.0K Oct  7 14:34 ..
+    drwxr-x--- 2 consul consul 4.0K Feb 25 18:50 861-204830-1456426245436
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:14 870-213022-1456917280513
+
+user@master:~# salt 'leaders-i-ac20797e' cmd.run 'mv /home/consul/tmp /home/consul/tmp-old'
+leaders-i-ac20797e:
+
+user@master:~# salt 'leaders-i-0d4a32b5' cmd.run 'mv /home/consul/tmp /home/consul/tmp-old'
+leaders-i-0d4a32b5:
+
+user@master:~# salt 'leaders*' cmd.run 'ls -alh /home/consul/tmp/raft/snapshots'
+leaders-i-ac20797e:
+    ls: cannot access /home/consul/tmp/raft/snapshots: No such file or directory
+leaders-i-e8a8190f:
+    total 16K
+    drwxr-x--- 4 consul consul 4.0K Mar  6 20:14 .
+    drwxr-x--- 3 consul consul 4.0K Mar  6 20:13 ..
+    drwxr-x--- 2 consul consul 4.0K Mar  2 11:10 870-213018-1456917007147
+    drwxr-x--- 2 user   root   4.0K Mar  6 20:12 877-219344-1457293933762
+leaders-i-0d4a32b5:
+    ls: cannot access /home/consul/tmp/raft/snapshots: No such file or directory</code></pre>
+<p>Now, on each leader, we need to edit the peers.json file, to ensure we have the IPs of the leaders we want in there:</p>
+<pre><code>user@leaders-i-0d4a32b5:~# cat /home/consul/tmp/raft/peers.json
+[&quot;10.10.20.8:8300&quot;,&quot;10.10.21.10:8300&quot;,&quot;10.10.20.14:8300&quot;] &lt; ADD 3 more from 10.10.22 and 10.10.23
+
+echo '[&quot;10.10.20.8:8300&quot;,&quot;10.10.21.10:8300&quot;,&quot;10.10.20.14:8300&quot;]' &gt; /home/consul/tmp/raft/peers.json</code></pre>
+<p>Great.. now we start the leaders…</p>
+<pre><code>user@master:~# salt 'leaders*' cmd.run 'service consul start'
+leaders-i-ac20797e:
+    consul start/running, process 1038
+leaders-i-e8a8190f:
+    consul start/running, process 13838
+leaders-i-0d4a32b5:
+    consul start/running, process 13274</code></pre>
+<p>…and then we go to one of the leaders and watch the progress with <code>consul monitor</code>.</p>
+<p>Eventually we should be able to see the leadership election happen, it’ll look something like:</p>
+<pre><code>2016/03/06 20:49:34 [INFO] consul: adding server leaders-i-ac20797e (Addr: 10.10.20.14:8300) (DC: us-east-1)
+2016/03/06 20:49:35 [WARN] raft: Election timeout reached, restarting election
+2016/03/06 20:49:35 [INFO] raft: Node at 10.10.20.8:8300 [Candidate] entering Candidate state
+2016/03/06 20:49:35 [ERR] raft: Failed to make RequestVote RPC to 10.10.21.10:8300: dial tcp 10.10.21.10:8300: connection refused
+2016/03/06 20:49:35 [WARN] raft: Remote peer 10.10.20.14:8300 does not have local node 10.10.20.8:8300 as a peer
+2016/03/06 20:49:35 [INFO] raft: Election won. Tally: 2
+2016/03/06 20:49:35 [INFO] raft: Node at 10.10.20.8:8300 [Leader] entering Leader state
+2016/03/06 20:49:35 [INFO] consul: cluster leadership acquired
+2016/03/06 20:49:35 [INFO] consul: New leader elected: leaders-i-e8a8190f</code></pre>
+<p>For more info, see https://www.consul.io/docs/guides/outage.html</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

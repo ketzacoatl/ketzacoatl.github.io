@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Wrangling `kubectl`</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Wrangling `kubectl`</h1>
+
+            <div class="info">
+    Posted on November 26, 2016
+    
+</div>
+
+<p>Kubernetes is all the rage these days, and for good reasons, it keeps devs happy, simplifies operations, and has a huge community backing it (not to mention Google’s $ to boot).</p>
+<p>As a user, you will eventually want to use Kubernetes client utility to manage the deployments on the clusters you deploy. Unlike all other sane projects, Kubernetes packs their 50MB client in the 1GB+ release tarball. Good grief.</p>
+<p>Let’s say you have grabbed the release tarball…</p>
+<h3 id="how-do-you-extract-the-kubectl-client-by-itself">How do you extract the <code>kubectl</code> client by itself?</h3>
+<pre><code>ᐅ tar -xf kubernetes.tar.gz -zvp                \
+      -C ~/bin/                                 \
+      --strip-components=4                      \
+      kubernetes/platforms/linux/amd64/kubectl</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

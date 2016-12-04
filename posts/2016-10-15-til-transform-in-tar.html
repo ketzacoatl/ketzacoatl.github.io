@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - TIL: tar has --transform</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>TIL: tar has --transform</h1>
+
+            <div class="info">
+    Posted on October 15, 2016
+    
+</div>
+
+<p>I often have more than one version of a particular utility installed, and switch between them as needed. Out of habit, I will often append the version to the executable. For example, <code>terraform-0.8.0-RC1</code> instead of <code>terraform</code>.</p>
+<p>TIL, <code>tar</code> has <code>--transform</code> to do this for you, and to save you from overwriting an existing symlink or other file. In practice, it looks like:</p>
+<pre><code>ᐅ tar -xf foobar.tar.gz -zvp                  \
+       ...                                    \
+       --transform=s,my_util,my_util-0.1.2,   \
+       my_util</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

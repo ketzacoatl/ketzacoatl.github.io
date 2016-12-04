@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Let's Build Nomad from Source!</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Let's Build Nomad from Source!</h1>
+
+            <div class="info">
+    Posted on August 11, 2016
+    
+</div>
+
+<p>Want to help a community you love? Testing new features and bugfixing is a great way to do so! During the <code>0.3.2</code> to <code>0.4.x</code> dev cycle, I felt the need to run a few tests on Nomad. Here is the helper script I wrote to improve my experience building and releasing an archive I could deploy on a staging cluster for testing.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#!/bin/sh</span>
+
+<span class="co"># here is a helper script which sets up the go dependencies for nomad,</span>
+<span class="co"># builds the project executable, and packages that up in a zip file for</span>
+<span class="co"># distribution through your own channels. This zip can be push to S3,</span>
+<span class="co"># hosted on CM (salt), etc</span>
+
+<span class="co"># modify $VERSION, though that's just a surface detail</span>
+
+<span class="co"># install dependencies as root or with sudo</span>
+<span class="co">#apt-get update</span>
+<span class="co">#apt-get install -y build-essential curl    \</span>
+<span class="co">#                   git-core mercurial bzr  \</span>
+<span class="co">#                   libpcre3-dev pkg-config \</span>
+<span class="co">#                   zip default-jre qemu    \</span>
+<span class="co">#                   libc6-dev-i386          \</span>
+<span class="co">#                   silversearcher-ag jq    \</span>
+<span class="co">#                   htop vim unzip</span>
+
+<span class="co"># make sure you have $GOPATH and $GOROOT set correctly, and $PATH updated</span>
+<span class="kw">export</span> <span class="ot">GOPATH=$HOME</span>/.go
+<span class="kw">export</span> <span class="ot">GOROOT=</span>/opt/go
+<span class="kw">export</span> <span class="ot">PATH=</span><span class="st">&quot;</span><span class="ot">$PATH</span><span class="st">:</span><span class="ot">$GOROOT</span><span class="st">/bin:</span><span class="ot">$GOPATH</span><span class="st">/bin&quot;</span>
+
+<span class="ot">VERSION=</span><span class="st">&quot;0.4.1-dev&quot;</span>
+<span class="ot">HASHI_GIT=</span><span class="st">&quot;</span><span class="ot">$GOPATH</span><span class="st">/src/github.com/hashicorp&quot;</span>
+<span class="ot">NOMAD_SRC=</span><span class="st">&quot;</span><span class="ot">$HASHI_GIT</span><span class="st">/nomad&quot;</span>
+<span class="ot">ZIP_FILE=</span><span class="st">&quot;</span><span class="ot">$HOME</span><span class="st">/nomad_</span><span class="ot">${VERSION}</span><span class="st">_linux_amd64.zip&quot;</span>
+
+<span class="kw">mkdir</span> -p <span class="ot">$HASHI_GIT</span>
+<span class="kw">git</span> clone https://github.com/hashicorp/nomad <span class="ot">$NOMAD_SRC</span>
+
+<span class="kw">cd</span> <span class="ot">$NOMAD_SRC</span>
+<span class="kw">make</span> bootstrap
+<span class="kw">make</span> dev
+<span class="kw">cd</span> bin
+<span class="kw">zip</span> <span class="ot">$ZIP_FILE</span> nomad
+<span class="kw">sha512sum</span> <span class="ot">$ZIP_FILE</span></code></pre></div>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Wrapping Nomad's Docker Driver for Here and Now Solutions</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Wrapping Nomad's Docker Driver for Here and Now Solutions</h1>
+
+            <div class="info">
+    Posted on May 28, 2016
+    
+</div>
+
+<h3 id="overview">Overview</h3>
+<p>This post demonstrates how to run a docker container with nomad, using a wrapper script.</p>
+<p><strong>UPDATE:</strong> This post insprired some interesting discussion on the Nomad mailing list, and a more generic solution to this problem, I recommend checking it out. See <a href="https://github.com/csawyerYumaed/nomad-docker">this script</a> for more info.</p>
+<p><strong>UPDATE 2: as of the Nomad v0.5.0 release, Nomad has much better support for logging, ephemeral disk and volume mounts, etc, so this post is not as relevant as it once was.</strong></p>
+<p>This is still a good example of how great it is to work with flexible software (thanks Nomad!).</p>
+<h3 id="why-would-you-want-to-use-this">Why would you want to use this?</h3>
+<p>With the wrapper, we can more easily run the container in the way we need to and without being limited by Nomad’s docker driver. For example, while Nomad will have great support for volumes in the future, it has no such support right now, and the driver does not expose a config parameter to tune the volumes mounted in the docker container. This is also a great way to use consul to lookup services before starting your app, or to retrieve credentials from Vault. When running legacy applications with nomad, the wrapper script is the place to put that type of look-up logic.</p>
+<p>We use a wrapper script and the <code>raw_exec</code> driver to run the container with the parameters we need.</p>
+<p>Also, in the real-world, we sometimes run home-grown tools that may have external dependencies, funny expectations, or parameters that should be enabled if other parameters have been. In my experience, it’s been easier to have Nomad run these types of apps with the help of a wrapper script.</p>
+<p>Why not call docker directly? A wrapper script makes it easy to work with the docker workflow, details like needing to stop and remove the named container before creating a new one.</p>
+<h3 id="how-to-use">How to Use</h3>
+<ul>
+<li>Place <code>run-postgres</code> in some <code>$PATH</code>, such as <code>/usr/local/bin/run-postgres</code>. Keep in mind, that wrapper script will need to exist on the hosts that could run the nomad job.</li>
+<li><p>If you wish to limit the hosts where this job can run, configure a constraint with those agents. For example, to flag specific hosts as in the <code>database</code> tier, add the following to those agents’ <code>config.json</code>:</p>
+<pre><code>&quot;meta&quot;: {
+  &quot;tier&quot;: &quot;database&quot;
+},</code></pre></li>
+<li>Copy <code>postgres.hcl</code> somewhere, and edit it. Be sure to update the <code>datacenters</code> and constraints</li>
+<li><p><code>nomad run postgres.hcl</code></p></li>
+</ul>
+<p>If that was successful, you’ll see good things with <code>nomad status postgres</code>, and the container should show up with <code>docker ps</code></p>
+<h3 id="random-notes">Random Notes</h3>
+<ul>
+<li>This wrapper is in python, however you can use whatever language you wish for the wrapper with raw_exec</li>
+<li>This method uses the <code>raw_exec</code> driver, and so isolation is reduced</li>
+<li>The way the docker-py works, it’s a bit cumbersome/awkward to create a completely generic wrapper script, and each time I have done this, the app has had significantly different desires, so I have generally written a wrapper for each app I wish to run, rather than one wrapper to rule them all.</li>
+<li>This example uses a non-unique name for the docker container, you might also want to use <code>NOMAD_TASK_NAME</code> to pass that on through</li>
+<li>The <code>PGDATA</code> env var is used to specify the path to mount into the docker container, this maps to docker’s <code>--workdir</code>.</li>
+<li>If the container fails for some reason (after starting), the script will exit and the job will show up as stopped/failed in nomad (which will then restart you job, depending on the job’s restart policy).</li>
+<li>If you stop the job with <code>nomad stop postgres</code>, the script will exit, but the docker container will stay running. The script will attempt to stop/remove a running container when it starts, so that is fine for updates. Use <code>docker stop   postgres</code> if you absolutely need to stop the container manually. The script can also include a signal handler that catches the signal from nomad and stops the container for you.</li>
+</ul>
+<h3 id="wrapper-script">Wrapper Script</h3>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co">#!/usr/bin/env python</span>
+
+<span class="co">'''</span>
+<span class="co">This is roughly equivalent to..</span>
+<span class="co">    docker pull postgres:9.5</span>
+<span class="co">    docker stop postgres</span>
+<span class="co">    docker rm postgres</span>
+<span class="co">    docker create --name=postgres                     \</span>
+<span class="co">                  -p $NOMAD_IP_db:5432:$NOMAD_PORT_db \</span>
+<span class="co">                  -v $PGDATA:$PGDATA                  \</span>
+<span class="co">                  --net=host postgres:9.5</span>
+<span class="co">    docker start postgres</span>
+<span class="co">    docker logs -f postgres</span>
+
+<span class="co">NOTE: the code here is (intentionally) simple in an</span>
+<span class="co">effort to demonstrate the method, YMMV.</span>
+
+<span class="co">'''</span>
+<span class="im">from</span> __future__ <span class="im">import</span> print_function
+<span class="im">import</span> os
+<span class="im">import</span> sys
+<span class="im">from</span> exceptions <span class="im">import</span> <span class="pp">Exception</span>
+
+<span class="co"># docker client boilerplate</span>
+<span class="im">from</span> docker <span class="im">import</span> Client
+cli <span class="op">=</span> Client(base_url<span class="op">=</span><span class="st">'unix://var/run/docker.sock'</span>)
+cli.containers()
+
+<span class="co"># specify the network mode, port bindings, and volume mounts.</span>
+<span class="co"># this is how the docker python client wants these parameters</span>
+port    <span class="op">=</span> os.environ[<span class="st">'NOMAD_PORT_db'</span>]
+ip      <span class="op">=</span> os.environ[<span class="st">'NOMAD_IP_db'</span>]
+workdir <span class="op">=</span> os.environ[<span class="st">'PGDATA'</span>]
+host_config <span class="op">=</span> cli.create_host_config(port_bindings<span class="op">=</span>{<span class="st">'5432'</span>: (ip,port)},
+                                     network_mode<span class="op">=</span><span class="st">'host'</span>,
+                                     binds<span class="op">=</span>[(<span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (workdir, workdir))])
+<span class="co"># scrub env vars, could also pass in the env in its entirety</span>
+env <span class="op">=</span> {<span class="st">'PGDATA'</span>: workdir}
+service_name <span class="op">=</span> <span class="st">'postgres'</span>
+docker_repo  <span class="op">=</span> <span class="st">'postgres'</span>
+docker_tag   <span class="op">=</span> <span class="st">'9.5'</span>
+image <span class="op">=</span> <span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (docker_repo, docker_tag)
+<span class="bu">print</span>(<span class="st">'wrapper: attempt to pull </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> image)
+<span class="cf">try</span>: cli.pull(repository<span class="op">=</span>docker_repo, tag<span class="op">=</span>docker_tag, stream<span class="op">=</span><span class="va">False</span>)
+<span class="co"># attempt graceful exit with helpful error message if the pull fails</span>
+<span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e: <span class="bu">print</span>(e)<span class="op">;</span> sys.exit()
+<span class="bu">print</span>(<span class="st">'wrapper: attempt to stop a running container/instance, if it exists'</span>)
+<span class="cf">try</span>: cli.stop(service_name)
+<span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip stop, running container not found'</span>)
+<span class="bu">print</span>(<span class="st">'wrapper: attempt to remove an existing container, if it exists'</span>)
+<span class="cf">try</span>: cli.remove_container(container<span class="op">=</span>service_name, force<span class="op">=</span><span class="va">True</span>)
+<span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip rm, existing/old container not found'</span>)
+<span class="bu">print</span>(<span class="st">'wrapper: attempt to create a new container..'</span>)
+container <span class="op">=</span> cli.create_container(image<span class="op">=</span>image, detach<span class="op">=</span><span class="va">True</span>, name<span class="op">=</span>service_name,
+                                 working_dir<span class="op">=</span>workdir, ports<span class="op">=</span>[port], environment<span class="op">=</span>env,
+                                 host_config<span class="op">=</span>host_config)
+<span class="bu">print</span>(<span class="st">'wrapper: created </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container)
+<span class="bu">id</span><span class="op">=</span>container.get(<span class="st">'Id'</span>)
+<span class="bu">print</span>(<span class="st">'wrapper: attempt to start that container (</span><span class="sc">%s</span><span class="st">)'</span> <span class="op">%</span> <span class="bu">id</span>)
+cli.start(container<span class="op">=</span><span class="bu">id</span>)
+<span class="bu">print</span>(<span class="st">'wrapper: retrieve and print stdout/err...'</span>)
+<span class="cf">for</span> msg <span class="op">in</span> cli.logs(container<span class="op">=</span>service_name, stream<span class="op">=</span><span class="va">True</span>, stdout<span class="op">=</span><span class="va">True</span>, stderr<span class="op">=</span><span class="va">True</span>):
+    <span class="bu">print</span>(msg, end<span class="op">=</span><span class="st">&quot;&quot;</span>)
+
+<span class="co"># could also include some signal handler to catch nomad stop or ctrl-c and</span>
+<span class="co"># stop/rm the running container</span>
+<span class="co"># that would look something like:</span>
+<span class="co"># define a signal handler that will gracefully stop the docker container when</span>
+<span class="co"># the user (or nomad/etc) send in a SIGINT. Do not RM the container, keep logs</span>
+<span class="co">#import signal</span>
+<span class="co">#def cleanup_docker(signal, frame):</span>
+<span class="co">#    '''</span>
+<span class="co">#    stop/rm the named container so it is not left lingering</span>
+<span class="co">#    '''</span>
+<span class="co">#    print &quot;\nSIGINT received, initiating graceful shutdown&quot;</span>
+<span class="co">#    try: cli.stop(c['name'])</span>
+<span class="co">#    except Exception as e: print('stopping container failed'); print(e)</span>
+<span class="co">#    sys.exit(0)</span>
+<span class="co">#</span>
+<span class="co">## register that handler</span>
+<span class="co">#signal.signal(signal.SIGINT, cleanup_docker)</span></code></pre></div>
+<h3 id="example-job">Example Job</h3>
+<pre><code>job &quot;postgres&quot; {
+    group &quot;postgres&quot; {
+        count = 1
+        constraint {
+            attribute = &quot;${meta.tier}&quot;
+            value = &quot;database&quot;
+        }
+        task &quot;postgres&quot; {
+            driver = &quot;raw_exec&quot;
+            config {
+                command = &quot;/usr/local/bin/run-postgres&quot;
+                args = [
+                ]
+            }
+            env {
+                &quot;PGDATA&quot; = &quot;/tmp/pgdata&quot;
+            }
+            resources {
+                cpu = 2000
+                memory = 2000
+                network {
+                    mbits = 100
+                    port &quot;db&quot; {}
+                }
+            }
+            service {
+                name = &quot;postgres&quot;
+                port = &quot;db&quot;
+                check {
+                    type = &quot;tcp&quot;
+                    interval = &quot;15s&quot;
+                    timeout = &quot;5s&quot;
+                }
+            }
+        }
+    }
+    type = &quot;service&quot;
+    datacenters = [&quot;foobar.us-west-1&quot;]
+}</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
