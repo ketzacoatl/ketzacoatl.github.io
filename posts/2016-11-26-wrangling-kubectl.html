@@ -28,13 +28,18 @@
 </div>
 
 <p>Kubernetes is all the rage these days, and for good reasons, it keeps devs happy, simplifies operations, and has a huge community backing it (not to mention Google’s $ to boot).</p>
-<p>As a user, you will eventually want to use Kubernetes client utility to manage the deployments on the clusters you deploy. Unlike all other sane projects, Kubernetes packs their 50MB client in the 1GB+ release tarball. Good grief.</p>
+<p>As a user, you will eventually want to use the Kubernetes client utility (<code>kubectl</code>) to manage the resources on the clusters you deploy. According to the <a href="http://kubernetes.io/docs/user-guide/prereqs/">Kubernetes docs</a>, the 50MB <code>kubectl</code> is packed in the 1GB+ release tarball. Good grief.</p>
 <p>Let’s say you have grabbed the release tarball…</p>
 <h3 id="how-do-you-extract-the-kubectl-client-by-itself">How do you extract the <code>kubectl</code> client by itself?</h3>
 <pre><code>ᐅ tar -xf kubernetes.tar.gz -zvp                \
       -C ~/bin/                                 \
       --strip-components=4                      \
       kubernetes/platforms/linux/amd64/kubectl</code></pre>
+<h3 id="update-128">UPDATE 12/8</h3>
+<p>While fumbling around with other topics, I stumbled across the <a href="https://coreos.com/kubernetes/docs/latest/configure-kubectl.html">CoreOS docs</a> for <code>kubectl</code> (why this exists separate from the official docs puzzles me), which points out that the bare executable can be retrieved from Google:</p>
+<pre><code>$ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.4.3/bin/linux/amd64/kubectl</code></pre>
+<h3 id="update-129">UPDATE 12/9</h3>
+<p>The official doc project just added the same info yesterday in <a href="https://github.com/kubernetes/kubernetes.github.io/commit/b3bb56b602a2d096a78d2c7c83aae9ac27cbf416">this commit</a>, visible online <a href="http://kubernetes.io/docs/user-guide/prereqs/">here in the docs</a>.</p>
 
         </div>
         <div id="footer">
