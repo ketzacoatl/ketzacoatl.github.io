@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - New Docker Image for the Warp Web Server</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>New Docker Image for the Warp Web Server</h1>
+
+            <div class="info">
+    Posted on December 12, 2016
+    
+</div>
+
+<hr />
+<p>TLDR: <code>docker pull yesodweb/warp</code> for some static web server goodness.</p>
+<hr />
+<h3 id="web-frameworks-and-haskell">Web frameworks and Haskell</h3>
+<p>In the <a href="https://haskell-lang.org/">world of Haskell</a>, you have quite a few <a href="https://wiki.haskell.org/Web/Servers">web servers</a> and application frameworks to choose from. <a href="https://github.com/yesodweb/wai">WAI</a>, the Web Application Interface library is one of those, and <a href="http://www.aosabook.org/en/posa/warp.html">Warp</a> is the super-fast web server for WAI applications.</p>
+<p>For a variety of reasons, I doubt Warp is all that well known outside the world of Haskell. I hope that changes, and I believe it just got a little bit more possible.</p>
+<h3 id="building-docker-images-with-stack">Building Docker images with Stack</h3>
+<p>Let me digress for a moment. <a href="http://haskellstack.org/">Stack</a> is the fantastic build/package management tool for Haskell. It is very well-designed, and aims to be a helpful companion in your successful experience with Haskell. While writing Haskell code is not (yet) in my daily work, I build and interact with a fair bit of Haskell code. Early in Stack’s development, we were using Stack to build executables, then using a <code>Dockerfile</code> and <code>docker build</code> to create an image with that new executable.. and <a href="https://github.com/commercialhaskell/stack/issues/401">we eventually realized</a> we could just have Stack do that all for us. Thus, <code>stack image container</code> was born.</p>
+<p>There is a section in the project’s <code>stack.yaml</code> to tell Stack what to build, for example:</p>
+<pre><code>image:
+  containers:
+    - base: &quot;fpco/pid1&quot;
+      name: &quot;my/image&quot;
+      executables:
+        - my-app</code></pre>
+<p>Stack generates a <code>Dockerfile</code> for each item in the list of images to build. In this case, I tell Stack to use the <code>fpco/pid1</code> image as the <code>base</code> (sets <code>FROM</code> in the <code>Dockerfile</code>), tags the image with <code>my/image</code>, and adds the executables listed (<code>my-app</code> in this case).</p>
+<h3 id="a-need-for-static-web-servers">A need for static web servers</h3>
+<p>Recently, I have been writing a lot of documentation, a little <a href="http://asciidoctor.org/">Asciidoc</a>, a lot of markdown and <a href="http://mkdocs.org/">mkdocs</a>. I love simplicity and automation, so it’s only natural to hook up CI with the full pipeline: monitor the git repos and auto build when commits are made, create HTML and static content, package that up as a docker image, and if the build is for the production branch, deploy that image so it’s immediately available and without me needing to do anything more than check that my latest updates are present on the live site. I’ve setup a few of these pipelines, initially for private documentation behind authentication, and more recently for public display. Overall, the pipeline has worked exceedingly well, and I’m proud of the results.</p>
+<h3 id="back-to-warp.">Back to Warp.</h3>
+<p>I’ve been impressed with it’s simplicity, speed, and reliability (nginx is also great, but I’m tired of configuring it in today’s high-speed and highly-automated operations world). When I needed a static HTTP server for that public (read: no authentication) doc site, I realized Warp’s static app server would be a great fit, but how would I get it into the pipeline?</p>
+<p>Well, Warp is Haskell, and Stack builds Haskell, and it builds docker images, so I sent in one of those fantastically simple but wonderfully gratifying <a href="https://github.com/yesodweb/wai/pull/600">pull requests</a> to ensure <code>stack image container</code> could build us an image in a giffy.</p>
+<h3 id="the-result">The result?</h3>
+<pre><code>ᐅ docker pull yesodweb/warp
+Using default tag: latest
+latest: Pulling from yesodweb/warp
+e2dba40aea3c: Pull complete
+Digest: sha256:0cfe10919a5294aab231d5726799556313e4c4bd592cbe4c6ba05bdb778151db
+Status: Downloaded newer image for yesodweb/warp:latest</code></pre>
+<h3 id="how-to-use-it">How to use it?</h3>
+<pre><code>ᐅ docker run --rm -it                       \
+             -v $(pwd):/var/www/html        \
+             -p 127.0.0.1:3000:3000         \
+	     yesodweb/warp                  \
+	     warp --docroot /var/www/html/
+Serving directory /var/www/html/ on port 3000 with [&quot;index.html&quot;,&quot;index.htm&quot;] index files.</code></pre>
+<h3 id="voilà">Voilà!</h3>
+<div class="figure">
+<img src="../images/warp-static-server.png" title="voilà!" />
+
+</div>
+<h3 id="packaging-your-own-docker-image">Packaging your own Docker image…</h3>
+<p>Using <code>yesodweb/warp</code> as our base image, we can package some docs into <code>/var/www/html</code> and create a new image with everything needed. That could look like:</p>
+<pre><code>FROM yesodweb/warp:latest
+
+# packaged HTML and static site in here
+ADD $TARFILE /var/www/html/
+
+# run static web server with warp
+CMD warp --port 3000 --docroot /var/www/html/</code></pre>
+<h3 id="run-that-image">Run that image!</h3>
+<pre><code>ᐅ docker run --rm -it my-doc-image
+Serving directory /var/www/html/ on port 3000 with [&quot;index.html&quot;,&quot;index.htm&quot;] index files.</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
