@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - TIL: tar has --transform</title>
+        <title>Spaceship Earth - The Balance between Flexibility and Constraints</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
     </head>
@@ -21,19 +21,18 @@
         </div>
 
         <div id="content">
-            <h1>TIL: tar has --transform</h1>
+            <h1>The Balance between Flexibility and Constraints</h1>
 
             <div class="info">
-    Posted on October 15, 2016
+    Posted on December 20, 2016
     
 </div>
 
-<p>I often have more than one version of a particular utility installed, and switch between them as needed. Out of habit, I will often append the version to the executable. For example, <code>terraform-0.8.0-RC1</code> instead of <code>terraform</code>.</p>
-<p>TIL, <code>tar</code> has <code>--transform</code> to do this for you, and to save you from overwriting an existing symlink or other file. In practice, it looks like:</p>
-<pre><code>ᐅ tar -xf foobar.tar.gz -zvp                  \
-       ...                                    \
-       --transform=s,my_util,my_util-0.1.2,   \
-       my_util</code></pre>
+<p>Operations in the real-world is hard. Designing and maintaining scalable systems is hard. Keeping pace with business desires and innovation is challenging.</p>
+<p>In systems engineering, flexibility provides opportunity and an ability to keep pace with the dynamics of the real-world, while accepting constraints simplify the implementation. Successful designs offer flexibility through simplicity, while eliminating constraints. The challenge is to embrace the balance of both (pick constraints to guide the implementation, and pick where to draw the line with the system’s flexibility), while maintaining open roads for future scaling.</p>
+<p>Embrace the tradeoff.</p>
+<p>Constraints can be taken as “requirements”, or “specs”, while flexibility can enable the evolution of the system as time progresses (and as those specs change).</p>
+<p>Yes, we can have the best of both worlds.</p>
 
         </div>
         <div id="footer">

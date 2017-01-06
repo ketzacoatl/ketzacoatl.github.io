@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Hakyll with Github Pages (a simple approach)</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Hakyll with Github Pages (a simple approach)</h1>
+
+            <div class="info">
+    Posted on December 16, 2016
+    
+</div>
+
+<p>In general, tutorials for many static site generators with hosting on Github Pages will recommend the “two-branch” method. <a href="https://jaspervdj.be/hakyll/tutorials/github-pages-tutorial.html">Hakyll makes this recommendation</a> in their tutorials. The method uses a single repository with the markup source and the rendered site on separate branches. There isn’t anything inherently terrible about this method, but at least for me, I never really liked the workflow with that setup.</p>
+<h3 id="multiple-branches-just-didnt-work-for-me">Multiple branches just didn’t work for me</h3>
+<p>Switching branches gets in the way of active work, stashing work in progress sometimes fails, and it feels weird/cumbersome to have different files existing on different branches.</p>
+<h3 id="a-simple-alternative">A (simple) alternative</h3>
+<p>It was some time before the obvious alternative presented itself…</p>
+<h4 id="two-repos---one-is-for-the-site-source-one-has-the-rendered-content-github-pages-will-host.">Two repos - one is for the site source, one has the rendered content Github Pages will host.</h4>
+<p>Having used it for a few months, I realize how lean and straightforward this alternative is (for me). I like the workflow, it’s a little less mental strain, and I don’t mind making two commits to publish updates.</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

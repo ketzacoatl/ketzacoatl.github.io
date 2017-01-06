@@ -5,6 +5,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <title>Spaceship Earth - New Docker Image for the Warp Web Server</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
     </head>
     <body>
         <div id="header">
@@ -36,12 +37,12 @@
 <h3 id="building-docker-images-with-stack">Building Docker images with Stack</h3>
 <p>Let me digress for a moment. <a href="http://haskellstack.org/">Stack</a> is the fantastic build/package management tool for Haskell. It is very well-designed, and aims to be a helpful companion in your successful experience with Haskell. While writing Haskell code is not (yet) in my daily work, I build and interact with a fair bit of Haskell code. Early in Stack’s development, we were using Stack to build executables, then using a <code>Dockerfile</code> and <code>docker build</code> to create an image with that new executable.. and <a href="https://github.com/commercialhaskell/stack/issues/401">we eventually realized</a> we could just have Stack do that all for us. Thus, <code>stack image container</code> was born.</p>
 <p>There is a section in the project’s <code>stack.yaml</code> to tell Stack what to build, for example:</p>
-<pre><code>image:
-  containers:
-    - base: &quot;fpco/pid1&quot;
-      name: &quot;my/image&quot;
-      executables:
-        - my-app</code></pre>
+<div class="sourceCode"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span class="fu">image:</span>
+  <span class="fu">containers:</span>
+    <span class="kw">-</span> <span class="fu">base:</span> <span class="st">&quot;fpco/pid1&quot;</span>
+      <span class="fu">name:</span> <span class="st">&quot;my/image&quot;</span>
+      <span class="fu">executables:</span>
+        <span class="kw">-</span> my-app</code></pre></div>
 <p>Stack generates a <code>Dockerfile</code> for each item in the list of images to build. In this case, I tell Stack to use the <code>fpco/pid1</code> image as the <code>base</code> (sets <code>FROM</code> in the <code>Dockerfile</code>), tags the image with <code>my/image</code>, and adds the executables listed (<code>my-app</code> in this case).</p>
 <h3 id="a-need-for-static-web-servers">A need for static web servers</h3>
 <p>Recently, I have been writing a lot of documentation, a little <a href="http://asciidoctor.org/">Asciidoc</a>, a lot of markdown and <a href="http://mkdocs.org/">mkdocs</a>. I love simplicity and automation, so it’s only natural to hook up CI with the full pipeline: monitor the git repos and auto build when commits are made, create HTML and static content, package that up as a docker image, and if the build is for the production branch, deploy that image so it’s immediately available and without me needing to do anything more than check that my latest updates are present on the live site. I’ve setup a few of these pipelines, initially for private documentation behind authentication, and more recently for public display. Overall, the pipeline has worked exceedingly well, and I’m proud of the results.</p>
@@ -69,13 +70,13 @@ Serving directory /var/www/html/ on port 3000 with [&quot;index.html&quot;,&quot
 </div>
 <h3 id="packaging-your-own-docker-image">Packaging your own Docker image…</h3>
 <p>Using <code>yesodweb/warp</code> as our base image, we can package some docs into <code>/var/www/html</code> and create a new image with everything needed. That could look like:</p>
-<pre><code>FROM yesodweb/warp:latest
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> yesodweb/warp:latest
 
-# packaged HTML and static site in here
-ADD $TARFILE /var/www/html/
+<span class="co"># packaged HTML and static site in here</span>
+<span class="kw">ADD</span> $TARFILE /var/www/html/
 
-# run static web server with warp
-CMD warp --port 3000 --docroot /var/www/html/</code></pre>
+<span class="co"># run static web server with warp</span>
+<span class="kw">CMD</span> warp --port 3000 --docroot /var/www/html/</code></pre></div>
 <h3 id="run-that-image">Run that image!</h3>
 <pre><code>ᐅ docker run --rm -it my-doc-image
 Serving directory /var/www/html/ on port 3000 with [&quot;index.html&quot;,&quot;index.htm&quot;] index files.</code></pre>
