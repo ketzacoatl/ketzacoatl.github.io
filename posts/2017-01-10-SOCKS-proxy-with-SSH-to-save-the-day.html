@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Using SSH as a SOCKS Proxy to route HTTP traffic</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Using SSH as a SOCKS Proxy to route HTTP traffic</h1>
+
+            <div class="info">
+    Posted on January 10, 2017
+    
+</div>
+
+<p>Let’s say that, for one reason or another, you want to open a website in the browser running on your local laptop/desktop, but you want that HTTP traffic to pass through some server/VM running in the cloud.</p>
+<pre><code>+--------+
+| Laptop |
+| +----+ |
+| | FF | |
+| |    | |        +-----+       +-------+
+| +----+ | tunnel |Cloud| HTTP  | Some  |
+|   \____|=======&gt;| VM  |------&gt;|Website|
++--------+        +-----+       +-------+</code></pre>
+<p>This is a proxy.</p>
+<h3 id="how-do-you-set-this-up">How do you set this up?</h3>
+<h4 id="create-an-ssh-tunnel-that-supports-socks5">Create an SSH tunnel that supports SOCKS5</h4>
+<pre><code>ᐅ ssh -fN -D localhost:9999 user@remote-server</code></pre>
+<p>In this case:</p>
+<ul>
+<li><code>-f</code> sends SSH to the background</li>
+<li><code>-N</code> tells SSH you won’t run a remote, interactive shell, it is useful for tunnels</li>
+<li><code>-D</code> tells SSH to setup a SOCKS5 tunnel</li>
+<li><code>localhost:9999</code> is the <code>host:port</code> on the local end of the tunnel you will point your browser at</li>
+<li><code>user@remote-server</code> is the <code>user@host</code> of the remote SSH server you will route HTTP traffic through</li>
+</ul>
+<h4 id="caveat-ensure-allowtcpforwarding-is-enabled">Caveat: ensure <code>AllowTcpForwarding</code> is enabled</h4>
+<p>It’s on by default, but in case you run into issues, check that <code>/etc/ssh/sshd_config</code> has <code>AllowTcpForwarding yes</code> to allow the proxy.</p>
+<h4 id="testing-with-curl">Testing with cURL</h4>
+<p>OK, with the SOCKS proxy tunnel setup, let’s use it. The simplest test from the command line is to use <code>curl</code> to send an HTTP request through the tunnel. There are a few ways to tell <code>curl</code> about the tunnel, but for our purposes, the <code>--proxy</code> cli flag will do:</p>
+<pre><code>ᐅ curl --proxy socks5h://localhost:9999 -v https://duckduckgo.com</code></pre>
+<p><code>--proxy</code> references the <code>host:port</code> we told SSH to use when setting up the tunnel, and <code>curl</code> will send the request thru that tunnel.</p>
+<h4 id="configuring-chromium">Configuring Chromium</h4>
+<p><a href="https://www.chromium.org/developers/design-documents/network-stack/socks-proxy">This doc</a> has the details, but here they are in short:</p>
+<pre><code>--proxy-server=&quot;socks5://localhost:9999&quot; --host-resolver-rules=&quot;MAP * 0.0.0.0 , EXCLUDE myproxy&quot;</code></pre>
+<p>Pass those to chromium when opening it from the shell.</p>
+<h4 id="configuring-firefox">Configuring Firefox</h4>
+<p>There are other ways, but to configure a specific profile:</p>
+<ul>
+<li>open preferences</li>
+<li>select the <em>advanced</em> tab</li>
+<li>select the <em>network</em> tab</li>
+<li>click <em>Settings…</em> next to <em>Configure how Firefox connects to the Internet</em></li>
+<li>select <em>Manual proxy configuration</em></li>
+<li>add <code>localhost</code> and <code>9999</code> into <em>SOCKS Host</em> and <em>Port</em> in the form</li>
+<li>save and happy proxied browsing!</li>
+</ul>
+<h3 id="why-would-you-do-this">Why would you do this?</h3>
+<p>There are lots of reasons, here are a few I run into periodically:</p>
+<ul>
+<li>You’ve run into the craziest VPN connection issue of your life, but it works fine when you run the VPN from an EC2 instance in the cloud… setup a SOCKS proxy on the EC2 instance to route some of your HTTP traffic thru the VPN (via the SOCKs proxy).</li>
+<li>You’ve deployed a bunch of management web services (UIs) in a secure network, you have SSH access to the network, but do not want to make those management services publicly available (and a VPN is too heavy to run).</li>
+<li>You trust SSH more than a VPN secured by OpenSSL.</li>
+<li>You don’t want to expose your local IP to X or Y website.</li>
+<li>You need to circumvent some restrictive firewall (in a school or corporate network).</li>
+</ul>
+<h3 id="if-it-matters-beware-of-leaking-dns">If it matters, beware of leaking DNS!</h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
