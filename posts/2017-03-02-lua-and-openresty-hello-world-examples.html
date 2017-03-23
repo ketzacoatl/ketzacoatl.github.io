@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 1: Hello World Examples</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 1: Hello World Examples</h1>
+
+            <div class="info">
+    Posted on March  2, 2017
+    
+</div>
+
+<p>This post is part one of my “Intro to Lua and Openresty” series. For more info on the series (including scope, research notes, and the usual disclaimers), see <a href="2017-03-02-intro-to-webapp-dev-with-lua-and-openresty.html">the introductory post</a>.</p>
+<h3 id="execution-environment">Execution environment</h3>
+<p>While there are a few ways you can run Lua code, we want to minimize the setup and administrative overhead. Docker helps keep the localhost clean, and the <code>openresty</code> images are a great way to get a fully functional lua environment. This set of images would also serve as a great base image when we get to building our own (later in the series). These images include <code>luajit</code>, which can run arbitrary lua code as an interpreted script. They also provide several flavors of the image, including a release on Alpine. Lua distributes modules with <code>luarocks</code> (package manager), and this is available on the <code>alpine-fat</code> flavor.</p>
+<h2 id="hello-world-in-lua">Hello World! in Lua</h2>
+<p>The canonical <code>Hello World!</code> in Lua is ridiculously simple:</p>
+<pre><code>ᐅ docker run -it --entrypoint /bin/sh openresty/openresty:alpine
+/ # echo 'print(&quot;hello world!&quot;)' &gt; hello.lua
+/ #
+/ # /usr/local/openresty/luajit/bin/luajit hello.lua
+hello world!</code></pre>
+<p>So simple in fact, I skipped including it in the <a href="https://github.com/ketzacoatl/explore-openresty">git repo</a> with example code for the series. But there you have it :)</p>
+<h2 id="hello-world-in-openresty">Hello World! in Openresty</h2>
+<p>OK, with that out of the way, let’s get into Openresty! We will start with the HTML version, and then do one with JSON.</p>
+<h3 id="the-html-version">the HTML Version</h3>
+<p>For these examples, we use <code>content_by_lua</code> to keep it simple and embed the lua code directly into <code>nginx.conf</code>:</p>
+<pre class="nginx"><code>worker_processes 1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen 8000;
+        location / {
+            default_type text/html;
+            content_by_lua '
+                ngx.say(&quot;&lt;p&gt;hello world!&lt;/p&gt;&quot;)
+            ';
+        }
+    }
+}</code></pre>
+<p><code>ngx.say</code> is provided by openresty and available in the nginx environment by default, so there is nothing to “import”.</p>
+<p>If you are following along with the git repo, find <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/01-hello-world-html">the example here</a>.</p>
+<p>Let’s run it with the <code>openresty:alpine</code> docker image. We’ll use <code>--volume</code> to “mount” the <code>nginx.conf</code> into the container:</p>
+<pre><code>ᐅ docker run --name lua --rm --volume `pwd`:/usr/local/openresty/nginx/conf/ -p 127.0.0.1:8000:8000 openresty/openresty:alpine
+nginx: the configuration file /usr/local/openresty/nginx/conf/nginx.conf syntax is ok
+nginx: configuration file /usr/local/openresty/nginx/conf/nginx.conf test is successful</code></pre>
+<p>Let’s check it out:</p>
+<pre><code>ᐅ curl localhost:8000
+&lt;p&gt;hello world!&lt;/p&gt;</code></pre>
+<p>Yay!</p>
+<h3 id="hello-world---json-version">Hello World - JSON Version</h3>
+<p>The <code>nginx.conf</code> this time…</p>
+<pre class="nginx"><code>worker_processes  1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            content_by_lua '
+                local cjson = require &quot;cjson&quot;
+                ngx.status  = ngx.HTTP_OK
+                ngx.say(cjson.encode({ status = true, foobar = &quot;string&quot; }))
+                return ngx.exit(ngx.HTTP_OK)
+            ';
+        }
+    }
+}</code></pre>
+<h3 id="break-down-the-code">Break down the Code</h3>
+<p>If you are following along with the git repo, find the <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/02-hello-world-json">example here</a>.</p>
+<p>Note that we’ve updated the content type spec to <code>application/json</code>. This is an nginx thing. It is nice that Openresty builds on the standard Nginx config directives.</p>
+<p>This example uses <code>content_by_lua</code> to embed the lua code directly in the <code>nginx.conf</code>. There is also a directive that can load the lua code from a file, but for simplicity and clarity, the examples in this series will keep the code in <code>nginx.conf</code>.</p>
+<p><code>cjson</code> is a lua module for encoding and decoding JSON data. There are a couple other options, but this is included in openresty, so there is no need to install a module with <code>luarocks</code> (we’ll get there in time).</p>
+<p><code>local cjson = require &quot;cjson&quot;</code> is an import of sorts. You may also see examples that use <code>require(&quot;cjson&quot;)</code> instead. I am not sure which is more common, and it seems to be an arbitrary stylistic detail.</p>
+<p>The JSON data we return in this example is <code>{ status = true, foobar = &quot;string&quot; }</code>. Note the use of <code>&quot;</code> for the string, while <code>true</code> is recognized as a boolean type. More info on <code>cjson</code> can be found in the <a href="https://www.kyne.com.au/~mark/software/lua-cjson-manual.html">lua-cjson manual</a>.</p>
+<h3 id="lets-see-it-run">Let’s see it run!</h3>
+<p>We use the same openresty docker image to run the JSON hello world:</p>
+<pre><code>ᐅ cd examples/02-hello-world-json
+ᐅ docker run --name lua --rm --volume `pwd`:/usr/local/openresty/nginx/conf/ -p 127.0.0.1:8000:8000 openresty/openresty:alpine</code></pre>
+<p>Check it out…</p>
+<pre><code>ᐅ curl -i localhost:8000
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Thu, 02 Mar 2017 15:43:20 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:true,&quot;foobar&quot;:&quot;string&quot;}</code></pre>
+<h3 id="drop-into-the-docker-container-to-debug">Drop into the docker container to debug…</h3>
+<p>If you need to debug, it’s nice to see what’s in the error log, for example:</p>
+<pre><code>ᐅ docker exec -it lua /bin/sh
+/ #
+/ # cat /usr/local/openresty/nginx/error.log
+2017/03/02 15:40:13 [error] 5#5: *1 lua entry thread aborted: runtime error: content_by_lua(nginx.conf:18):3: attempt to index global 'cjson' (a nil value)
+stack traceback:
+coroutine 0:
+        content_by_lua(nginx.conf:18): in function &lt;content_by_lua(nginx.conf:18):1&gt;, client: 172.17.0.1, server: , request: &quot;GET / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;</code></pre>
+<p>If you change the <code>nginx.conf</code> while Nginx is running, you can reload <code>nginx</code> to refresh the config in memory:</p>
+<pre><code>ᐅ docker exec -it lua /usr/local/openresty/nginx/sbin/nginx -s reload
+2017/03/02 15:47:19 [notice] 7#7: signal process started</code></pre>
+<h3 id="makefile">Makefile</h3>
+<p>We can combine the shell commands above into a <code>Makefile</code> to establish and codify a workflow for development and testing to add or modify code, eg:</p>
+<pre><code>run:
+        docker run --name lua --rm --volume `pwd`:/usr/local/openresty/nginx/conf/ -p 127.0.0.1:8000:8000 openresty/openresty:alpine
+
+reload:
+        docker exec -it lua /usr/local/openresty/nginx/sbin/nginx -s reload
+
+error-logs:
+        docker exec -it lua cat /usr/local/openresty/nginx/error.log
+logs:
+        docker logs lua
+
+get:
+        curl -i localhost:8000</code></pre>
+<p>Using these make targets would look like:</p>
+<pre><code>ᐅ make run
+docker run --name lua --rm --volume `pwd`:/usr/local/openresty/nginx/conf/ -p 127.0.0.1:8000:8000 openresty/openresty:alpine
+</code></pre>
+<pre><code>ᐅ make get
+curl -i localhost:8000
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Thu, 23 Mar 2017 07:16:24 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:true,&quot;foobar&quot;:&quot;string&quot;}</code></pre>
+<pre><code>ᐅ make logs
+docker logs lua
+172.17.0.1 - - [23/Mar/2017:07:16:24 +0000] &quot;GET / HTTP/1.1&quot; 200 45 &quot;-&quot; &quot;curl/7.35.0&quot;</code></pre>
+<pre><code>ᐅ make reload
+docker exec -it lua /usr/local/openresty/nginx/sbin/nginx -s reload
+2017/03/23 07:17:20 [notice] 10#10: signal process started</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

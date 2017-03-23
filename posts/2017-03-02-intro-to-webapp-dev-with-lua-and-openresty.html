@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Introduction to Webapp Development with Lua and Openresty</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Introduction to Webapp Development with Lua and Openresty</h1>
+
+            <div class="info">
+    Posted on March  2, 2017
+    
+</div>
+
+<p>This is a series of posts that aim to explore the basics of webapp development with <a href="http://www.lua.org/">Lua</a> and <a href="http://openresty.org/en/">Openresty</a>. While I have read a bit about Lua and Openresty in the past, I have no real-world experience with this stack. <strong>The purpose of these posts is to document my explorations, and to do so in a way that might help you explore similar topics.</strong></p>
+<p>This initial post will provide an introduction to the series, and will include various notes taken from my initial research. The simplest hello world examples will follow in a separate post, and future posts after that will get into more specific problems to solve.</p>
+<h3 id="posts-in-the-series">Posts in the Series</h3>
+<ol style="list-style-type: decimal">
+<li><a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Hello World Examples</a></li>
+</ol>
+<h2 id="what-is-our-target">What is our target?</h2>
+<p>I have a difficult time learning how to use a new language, stack, or framework if the examples are not following topics you find in the real-world of webapp development. While this series will be introductory, we will aim to produce a small cluster of services that demonstrate the basic components of a meaningful data transaction/processing workflow.</p>
+<p>In pursuit of that demo, each post in the series will focus on small, specific goals that contribute features to the demo. The series will build up from very basic to more meaningful capabilities, eventually coming together to form the demo itself.</p>
+<h4 id="disclaimer">Disclaimer</h4>
+<p>While I have reviewed some of the architectural options or prior art that might be applicable to the requirements of the demo, it has been minimal, and not all details have been scoped out. Being a newb to openresty and lua in general, I will likely run into surprises and need to review a few libraries or options before finding a reasonable solution, and even then, there will be much room for improvement.</p>
+<h3 id="demo-overview">Demo Overview</h3>
+<p>Openresty is built on nginx, so we’ll be using lua with nginx. We’ll use postgres as a database, and may explore redis, rabbitmq, or similar services. For simplicity, we’ll build Docker images and run the exercises in containers.</p>
+<p>We’ll run load tests on the system, sending in thousands (maybe millions?) of messages. If we have time, we’ll get into stats/metrics to introspect the system while it runs.</p>
+<h4 id="requirements-for-the-demo">Requirements for the demo</h4>
+<ul>
+<li>Set up a basic message queue processing system with the following components:
+<ul>
+<li>service/app in Nginx and Lua</li>
+<li>a message queue of some sort</li>
+<li>a sink to process messages in the queue</li>
+<li>a datastore for long-term persistence (Postgres)</li>
+</ul></li>
+<li>The service should work as follows:
+<ul>
+<li>There are two primary actions:
+<ol style="list-style-type: decimal">
+<li>write a message (POST)</li>
+<li>retrieve N of the most recent messages (GET)</li>
+</ol></li>
+<li>Nginx has separate location endpoints for the GET and POST actions.</li>
+<li>The format of the POST data does not matter.</li>
+<li>The POST data should be put into the message queue, and eventually persisted to the database.</li>
+<li>The response to GET requests should contain the last N messages received.</li>
+<li>The application logic is written in Lua and runs inside nginx.</li>
+</ul></li>
+<li>A sink should be connected to the message queue which processes the items and stores them in the database.
+<ul>
+<li>We could write the sink in any language, but we’ll use Lua for this as well (it is a good opportunity to learn more Lua in a slightly different context).</li>
+<li>Processing the message queue should be highly available (two or more nodes) and should gracefully handle a single node failure.</li>
+</ul></li>
+<li>Assume the nginx server, message queue and database servers all run on separate hosts - don’t assume all services can connect to localhost at the application layer.</li>
+</ul>
+<p>OK, let’s get started!</p>
+<h2 id="scoping-out-the-initial-tasks">Scoping out the initial tasks</h2>
+<p>While the requirements of the demo are simple, I have zero experience with Lua, so it makes sense to break up the demo into small challenges to figure out separately.</p>
+<p>Here are my initial tasks:</p>
+<ul>
+<li>research my open questions and the specifics of various features:
+<ul>
+<li>lua + nginx, executing arbitrary code for an HTTP URL path</li>
+<li>lua as a stand-alone executable or calling luascripts in general</li>
+<li>how to connect lua to [redis, rabbit, ..], and postgres
+<ul>
+<li>initial connection + read/write data</li>
+</ul></li>
+<li>how to respond to new messages in the queue - run <code>foo()</code> when there’s a new message</li>
+<li>which {redis,rabbitmq,etc} is <em>most often</em> connected to lua?
+<ul>
+<li>which seem to have the strongest client libraries?</li>
+</ul></li>
+<li>read envvars from lua</li>
+<li>pass cli params/args to a stand-alone script</li>
+<li>queues and lua (any prior art?)</li>
+</ul></li>
+<li>hello world examples
+<ul>
+<li>nginx + lua for an endpoint <code>/foo</code></li>
+<li>lua script</li>
+</ul></li>
+<li>stand-alone script using CLI args/envvars to set variables
+<ul>
+<li>for hostnames/credentials/etc</li>
+</ul></li>
+<li>cli/envvars in nginx+lua</li>
+<li>parse POST data (JSON) in nginx + lua</li>
+<li>connect to postgres and write data to a table</li>
+<li>connect to postgres and read data from a table
+<ul>
+<li>not using https://github.com/FRiCKLE/ngx_postgres, but do so with lua from nginx</li>
+<li>https://github.com/leafo/pgmoon#handling-json - retrieve JSON and get it in lua</li>
+</ul></li>
+<li>connect to queue and read data</li>
+<li>connect to a queue and write data</li>
+<li>keep it easy to swap one queue for another</li>
+<li>Makefile to build and run docker images / etc</li>
+<li>script DB init (create table for messages)
+<ul>
+<li>can just use the postgres image’s support for auto-running <code>.sql</code>/<code>.sh</code> in db init path</li>
+</ul></li>
+</ul>
+<h3 id="notes-from-initial-research">Notes from initial research</h3>
+<ul>
+<li>openresty has a docker image built on alpine: <a href="https://hub.docker.com/r/openresty/openresty/"><code>openresty/openresty:alpine</code></a>
+<ul>
+<li>there is the <code>alpine-fat</code> tag which includes <code>luarocks</code></li>
+</ul></li>
+<li><a href="https://github.com/pirogoeth/alpine-lua/blob/master/versions/5.2/Dockerfile">example Dockerfile</a> to build alpine docker image with lua</li>
+<li><a href="https://github.com/stevedonovan/Penlight">Penlight</a> - library for standard stuff that isn’t in lua core
+<ul>
+<li><strong>TIL: lua core maps to c stdlib (that’s it)</strong></li>
+</ul></li>
+<li><a href="https://github.com/amireh/lua_cliargs"><code>lua_cliargs</code></a> - library for parsing cli args/params</li>
+<li>envvars:
+<ul>
+<li>http://stackoverflow.com/questions/7633397/print-list-of-all-environment-variables</li>
+<li>“use <a href="https://github.com/LuaDist/luaex">luaex</a>”</li>
+<li>maybe easier to use <code>cliargs</code>.. we’ll see</li>
+</ul></li>
+<li>can build custom static executable with <a href="https://github.com/ers35/luastatic"><code>luastatic</code></a></li>
+<li><a href="http://leafo.net/lapis/"><code>lapis</code></a> - django-like webapp framework building on openresty</li>
+</ul>
+<h3 id="general-openrestynginx-and-programming-in-lua-resources">general openresty/nginx and “programming in lua” resources</h3>
+<ul>
+<li><a href="http://www.lua.org/pil/contents.html">Programming in Lua (PIL)</a></li>
+<li><a href="http://lua-users.org/">Lua Users</a>, and <a href="http://lua-users.org/wiki/">wiki</a></li>
+<li><a href="https://openresty.org/download/agentzh-nginx-tutorials-en.html">Openresty/nginx Tutorials</a></li>
+<li><a href="https://openresty.gitbooks.io/programming-openresty/content/">Programming Openresty</a></li>
+</ul>
+<h3 id="interesting-openresty-modules">Interesting Openresty Modules</h3>
+<ul>
+<li><a href="https://github.com/openresty/lua-resty-redis">lua-resty-redis</a> - redis client, actively maintained :)</li>
+<li><a href="https://github.com/openresty/lua-redis-parser#readme">lua-redis-parser</a> - a parser for redis responses?</li>
+<li><a href="https://github.com/bungle/lua-resty-reqargs">lua-resty-reqargs</a> - form and JSON processing</li>
+<li><a href="https://github.com/bungle/lua-resty-validation">lua-resty-validation</a></li>
+<li><a href="https://github.com/leafo/pgmoon">pgmoon</a> - postgres client</li>
+<li><a href="https://github.com/garethr/nginx-json-proxy">nginx-json-proxy</a></li>
+<li><a href="https://libraries.io/github/bungle/awesome-resty">awesome resty</a> - HUGE list of awesome modules</li>
+</ul>
+<h2 id="plan-of-attack">Plan of Attack</h2>
+<p>After a bunch more research and reading, I settled on the following points:</p>
+<ul>
+<li>use docker for all exploration, development, and running the demo
+<ul>
+<li>use openresty/nginx bundle for simplicity of development</li>
+</ul></li>
+<li>start with redis as our datastore for the message queue, fallback to rabbitmq if working with redis does not go well
+<ul>
+<li>it should be easy to swap queues and queue-processing strategy</li>
+</ul></li>
+<li>use lua for a stand-alone script (the sink) to process messages in the queue</li>
+<li>the sink will watch for new messages in the queue</li>
+<li>guard for race conditions and data-loss during processing of items on the queue
+<ul>
+<li>if a sink dies while processing a message, do not <em>silently</em> lose the message</li>
+<li>if a sink fails to write a message to the database, then write the message to log/stdout (this error condition is separate from losing a sink)</li>
+<li>ensure we can add multiple sinks to process messages in parallel without race conditions</li>
+<li>start with <a href="https://redis.io/commands/rpoplpush"><code>RPOPLPUSH</code></a> for a simple but reliable queue</li>
+</ul></li>
+<li>use JSON everywhere (processing POST/GET actions, in the queue, and in the datastore)</li>
+<li>format POST messages in JSON with: <code>{&quot;msg&quot;: &quot;....&quot;}</code></li>
+</ul>
+<h2 id="options-for-the-queue">Options for the Queue</h2>
+<p>Overall, the most open-ended questions still lingering are how to implement the queue itself. Here are some notes from my research into this topic.</p>
+<h3 id="redis-queue-bindings-options">Redis Queue Bindings / Options</h3>
+<ul>
+<li><a href="https://github.com/ocallaco/redis-queue">redis-queue</a> - queue built on redis
+<ul>
+<li>promising, but hasn’t been updated in 3 <em>years</em>…</li>
+</ul></li>
+<li><a href="https://github.com/nrk/redis-lua">redis-lua</a> - redis client
+<ul>
+<li>hasn’t been updated in <em>5 years…</em></li>
+</ul></li>
+<li><a href="https://github.com/openresty/redis2-nginx-module">redis2-nginx-module</a>
+<ul>
+<li>not really what I’m looking for..</li>
+<li>nor https://www.nginx.com/resources/wiki/modules/redis/</li>
+</ul></li>
+</ul>
+<h3 id="rabbitmq-lua-bindings">RabbitMQ Lua Bindings</h3>
+<ul>
+<li><a href="https://github.com/wingify/lua-resty-rabbitmqstomp">lua-resty-rabbitmqstomp</a>
+<ul>
+<li>“opinionated”, but it’s moved a lot of traffic…</li>
+</ul></li>
+<li><a href="https://github.com/cthulhuology/amqp.lua">amqp.lua</a></li>
+</ul>
+<h3 id="or-combine-redis-rabbitmq">Or combine Redis + RabbitMQ…</h3>
+<p>http://engineering.wingify.com/posts/scaling-with-queues/</p>
+<h3 id="consider-putting-the-lua-script-right-into-redis">Consider putting the lua script right into redis?</h3>
+<p>See <a href="https://redislabs.com/ebook/part-3-next-steps/chapter-11-scripting-redis-with-lua/">Ch 11 in the Redis Book</a>, scripting redis with Lua.</p>
+<p>While this is interesting, it does not seem to be the best fit. It is probably possible to put lua script in redis that responds to the additional messages added to the queue.. but I’m not too excited about this route for a few reasons:</p>
+<ul>
+<li>there’s a bunch to learn with scripting in redis, higher initial entrance fee (at least for now)</li>
+<li>if the code to respond to the queue is in redis, we have to add redis nodes to add workers, which isn’t graceful and doesn’t scale all that well</li>
+</ul>
+<p>That said, <a href="http://uniformlyrandom.com/2012/10/20/distributed-scheduled-queue-with-redis/">this post</a> is really interesting and even includes some lua to embed in redis and demonstrates a distributed, scheduled queue.</p>
+<h2 id="next-steps">Next Steps</h2>
+<p>With the various problems enumerated and some initial research complete, it is time to move on to the canonical <a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Hello World!</a> examples.</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

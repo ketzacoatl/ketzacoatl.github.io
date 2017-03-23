@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - HTTPS in Alpine linux</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>HTTPS in Alpine linux</h1>
+
+            <div class="info">
+    Posted on March  1, 2017
+    
+</div>
+
+<p><a href="https://alpinelinux.org/">Alpine Linux</a> is a great Linux system (well, I am liking it more and more). It is minimal, very simple to use and learn, and in my experience, just works in ways that are important to me.</p>
+<p>However, the trade-off for minimal is needing to add what you want to use.</p>
+<p>An example of this is proper support for HTTPS/SSL with <code>wget</code> (or curl, etc), see here:</p>
+<pre><code>ᐅ docker run -it alpine /bin/sh
+/ # wget -q https://github.com
+wget: can't execute 'ssl_helper': No such file or directory
+wget: error getting response: Connection reset by peer</code></pre>
+<p>Yes.. you could use <code>wget --no-check-certificate</code> (or <code>--insecure</code> with <code>curl</code>), but we’re more diligent than that.</p>
+<p>Fortunately, this is easy to resolve. While many linux systems ship with packages like <code>ca-certificates</code> and <code>openssl</code>, Alpine doesn’t, so you need to add either one of those two.</p>
+<p>Using <code>ca-certificates</code>:</p>
+<pre><code>ᐅ docker run -it alpine /bin/sh
+/ # apk add --update ca-certificates wget
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/community/x86_64/APKINDEX.tar.gz
+(1/2) Installing ca-certificates (20161130-r0)
+(2/2) Installing wget (1.18-r0)
+Executing busybox-1.24.2-r12.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 6 MiB in 13 packages</code></pre>
+<p>HTTPS should now work just fine:</p>
+<pre><code>/ # wget -q https://github.com
+/ #</code></pre>
+<p>Note that installing <code>ca-certificates</code> (without including <code>wget</code>) won’t work:</p>
+<pre><code>ᐅ docker run -it alpine /bin/sh
+/ # apk add --update ca-certificates
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/community/x86_64/APKINDEX.tar.gz
+(1/1) Installing ca-certificates (20161130-r0)
+Executing busybox-1.24.2-r12.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 6 MiB in 13 packages
+/ #
+/ # wget -q https://github.com
+wget: can't execute 'ssl_helper': No such file or directory
+wget: error getting response: Connection reset by peer</code></pre>
+<p>I’m still relatively new to Alpine, and otherwise not sure why (re)installing <code>wget</code> is needed here.</p>
+<p>Interestingly, installing <code>openssl</code> will avoid the need to (re)install <code>wget</code>:</p>
+<pre><code>ᐅ docker run -it alpine /bin/sh
+/ # apk add --update openssl
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.4/community/x86_64/APKINDEX.tar.gz
+(1/1) Installing openssl (1.0.2k-r0)
+Executing busybox-1.24.2-r12.trigger
+OK: 5 MiB in 12 packages
+/ # wget -q https://github.com
+/ #</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
