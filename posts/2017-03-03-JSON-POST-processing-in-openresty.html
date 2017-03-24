@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 2: JSON/POST Processing in Openresty</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 2: JSON/POST Processing in Openresty</h1>
+
+            <div class="info">
+    Posted on March  3, 2017
+    
+</div>
+
+<p>In <a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Part 1</a> of this series we covered the canonical Hello World! with Lua and Openresty. That established the first few bits of our foundation:</p>
+<ul>
+<li>handle a GET request with Openresty</li>
+<li>return some arbitrary JSON data in the HTTP response</li>
+<li><code>Makefile</code> with various targets helpful for development</li>
+</ul>
+<p>Here in Part 2 we will:</p>
+<ul>
+<li>handle a POST request with Openresty</li>
+<li>capture and process JSON data included with that request</li>
+<li>install a lua module, build a docker image, and expand our <code>Makefile</code></li>
+</ul>
+<p>“Processing” the JSON data means:</p>
+<ul>
+<li>encoding/parsing the data into JSON, validating it along the way</li>
+<li>returning the message received as a JSON response</li>
+</ul>
+<h3 id="capturing-post-data">Capturing POST data</h3>
+<p>The “new” bit in all of this is retrieving/validating the request data. One of the modules discovered in my initial research appears to be “the way” to do this in Openresty. That module is <a href="https://github.com/bungle/lua-resty-reqargs">lua-resty-reqargs</a>.</p>
+<p><code>reqargs</code> greatly simplifies this task. In fact, the workhorse in this example is the following one liner:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> get<span class="ot">,</span> post<span class="ot">,</span> <span class="fu">files</span> <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;resty.reqargs&quot;</span><span class="ot">()</span></code></pre></div>
+<p>Eg, if we are to POST some arbitrary JSON and use <code>reqargs</code> to capture it, <code>post</code> would be the validated JSON object (or empty, if the JSON was invalid). Note that this is slightly different from the last example in that we’re “importing” <em>and</em> “calling” <code>reqargs</code> in one fell swoop.</p>
+<p>What this does for us is pretty simple, but I won’t try to explain it, as the <a href="https://github.com/bungle/lua-resty-reqargs#get-post-files-regargsoptions">docs</a> say it best:</p>
+<blockquote>
+<p>This function will return three (3) return values, and they are called get, post, and files. These are Lua tables containing the data that was (HTTP) requested. get contains HTTP request GET arguments retrieved with ngx.req.get_uri_args. post contains either HTTP request POST arguments retrieved with ngx.req.get_post_args, or in case of application/json (as a content type header for the request), it will read the request body and decode the JSON, and the post will then contain the decoded JSON structure presented as Lua tables. The last return value files contains all the files uploaded. The files return value will only contain data when there are actually files uploaded and that the request content type is set to multipart/form-data. files has the same structure as get and post for the keys, but the values are presented as a Lua tables, that look like this (think about PHP’s $_FILES)…</p>
+</blockquote>
+<h3 id="nginx.conf"><code>nginx.conf</code></h3>
+<p>OK, so now that we know how to capture that data, let’s see the whole thing together in our <code>nginx.conf</code>:</p>
+<pre class="nginx"><code>worker_processes  1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            content_by_lua '
+                local cjson = require &quot;cjson&quot;
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                ngx.status  = ngx.HTTP_OK
+                ngx.say(cjson.encode(post))
+                return ngx.exit(ngx.HTTP_OK)
+            ';
+        }
+    }
+}</code></pre>
+<p>While this doesn’t cover all the corner cases, it exemplifies the important bits for this example.</p>
+<p>If you are following along with the git repo, we’re in <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/03-echo-post-json">03-echo-post-json</a>.</p>
+<h3 id="installing-the-reqargs-module">Installing the <code>reqargs</code> module</h3>
+<p>The <code>nginx.conf</code> above would work as-is with Openresty, except that the <code>reqargs</code> module needs to be installed.</p>
+<p>The Openresty docs I read seemed to recommend using <code>opm</code> to install modules, so I first attempted to use <code>opm</code>, but it didn’t seem to work right:</p>
+<pre><code>/ # /usr/local/openresty/bin/opm get bungle/lua-resty-reqargs
+* Fetching bungle/lua-resty-reqargs
+  Downloading https://opm.openresty.org/api/pkg/tarball/bungle/lua-resty-reqargs-1.4.opm.tar.gz
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  5585  100  5585    0     0   3777      0  0:00:01  0:00:01 --:--:--  3986
+Package lua-resty-upload-0.09 already installed.
+ERROR: openresty is required but is not available according to resty:</code></pre>
+<p>I’m not sure why <code>opm</code> is unable to “find” <code>openresty</code>, but nginx also failed to find <code>reqargs</code> with this method. I would have dug deeper into this, but installing the module with <code>luarocks</code> worked just fine:</p>
+<pre><code>ᐅ docker run -it --entrypoint /bin/sh openresty/openresty:alpine-fat
+/ #
+/ # /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+Installing https://luarocks.org/lua-resty-reqargs-1.4-1.src.rock...
+Using https://luarocks.org/lua-resty-reqargs-1.4-1.src.rock... switching to 'build' mode
+Updating manifest for /usr/local/openresty/luajit/lib/luarocks/rocks
+No existing manifest. Attempting to rebuild...
+lua-resty-reqargs 1.4-1 is now built and installed in /usr/local/openresty/luajit (license: BSD)</code></pre>
+<p>Note that the <code>openresty:alpine</code> image does not include <code>luarocks</code>, so we need to use the <code>openresty:alpine-fat</code> image here.</p>
+<h3 id="dockerfile"><code>Dockerfile</code></h3>
+<p>Given that the base <code>openresty</code> Docker image needs to be “updated” before we can use it for this example, it makes sense to create a <code>Dockerfile</code> and build an image to use when we want to run our code.</p>
+<p>Here is the <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</code></pre></div>
+<p>We can now build that image with:</p>
+<pre><code>ᐅ docker build --tag=app:3 --rm=true ./</code></pre>
+<p>Note that I’m tagging the image with <code>app:3</code> as part of the series of examples, other images will have <code>app:4</code>, <code>db:4</code> and so on.</p>
+<h3 id="makefile"><code>Makefile</code></h3>
+<p>I created the following <code>Makefile</code> while working thru this example:</p>
+<pre><code>build:
+        docker build --tag=app:3 --rm=true ./
+
+run:
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:3
+
+dev:
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 -v `pwd`:/usr/local/openresty/nginx/conf/ app:3
+
+clean:
+        docker stop app || true
+        docker rm   app || true
+
+reload:
+        docker exec -it app /usr/local/openresty/nginx/sbin/nginx -s reload
+
+logs:
+        docker exec -it app tail -f /usr/local/openresty/nginx/error.log
+
+get:
+        curl -i localhost:8000
+
+post:
+        curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;pass&quot;:&quot;foobar&quot;}' localhost:8000/
+
+post-invalid:
+        curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;pass:}' localhost:8000/
+</code></pre>
+<h3 id="build-the-docker-image">Build the Docker Image</h3>
+<pre><code>ᐅ make build
+docker build --tag=app:3 --rm=true ./
+Sending build context to Docker daemon  5.12 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+ ---&gt; Using cache
+ ---&gt; d5c51f61f244
+Step 4 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; 226f6ade413b
+Removing intermediate container 232aa9f27193
+Successfully built 226f6ade413b</code></pre>
+<p>I have run the build a few times here, so docker is using the cache, otherwise we would see Docker install <code>reqargs</code> with <code>luarocks</code>.</p>
+<h3 id="lets-see-it-in-action">Let’s See it in Action!</h3>
+<pre><code>ᐅ make run
+docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:3
+2e0a97eb565d5820f307f06e8e6a1438d886b4c6cbd4f319030b55d571e0814c</code></pre>
+<p>We’ve done nothing to differentiate between GET/POST/etc requests, so, technically speaking, this will respond to a GET with no data:</p>
+<pre><code>ᐅ make get
+curl -i localhost:8000
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Fri, 3 Mar 2017 14:28:21 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{}</code></pre>
+<p>Let’s see what happens when we POST invalid JSON:</p>
+<pre><code>ᐅ make post-invalid
+curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;pass:}' localhost:8000/
+{}</code></pre>
+<p>If we post invalid JSON, <code>reqargs</code> will validate the JSON and <code>post</code> will be empty (we could add logic to handle this as an error, but haven’t in this example).</p>
+<p>Let’s POST valid JSON, we should see it echoed back to us:</p>
+<pre><code>ᐅ make post
+curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;pass&quot;:&quot;foobar&quot;}' localhost:8000/
+{&quot;username&quot;:&quot;xyz&quot;,&quot;pass&quot;:&quot;foobar&quot;,&quot;id&quot;:1}</code></pre>
+<p>In case things go wrong, we have the <code>logs</code> make target to help us see what the problem is:</p>
+<pre><code>ᐅ make logs
+docker exec -it app tail -f /usr/local/openresty/nginx/error.log
+2017/03/03 14:30:53 [error] 5#5: *1 failed to load inlined Lua code: content_by_lua(nginx.conf:20):4: '=' expected near 'post', client: 127.0.0.1, server: , request: &quot;POST / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;
+^Cmake: *** [logs] Error 130</code></pre>
+<p>To clean up (stop/remove the docker container):</p>
+<pre><code>ᐅ make clean
+docker stop app || true
+app
+docker rm   app || true
+app</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
