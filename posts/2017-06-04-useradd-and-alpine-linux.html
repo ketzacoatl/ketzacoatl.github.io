@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - useradd and Alpine Linux</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>useradd and Alpine Linux</h1>
+
+            <div class="info">
+    Posted on June  4, 2017
+    
+</div>
+
+<p>While I’ve been using Alpine Linux more in the last year, I am still learning new things rather frequently.</p>
+<p>Here is today’s discovery: If your ops tooling wants <code>useradd</code>, you’ll need to install the <code>shadow</code> package.</p>
+<p>The reason is simple: Whereas most Linux distros are using PAM, Alpine is based on busybox, and has a different login stack (and related tooling, like <code>adduser</code>).</p>
+<p>Note that, by installing the <code>shadow</code> package, you replace the busybox login stack with PAM, which means that you may find corner cases where the login semantics differ (eg: where the PAM policies differ from standard busybox stuff).</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Use Packer to build a custom Vagrant box</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Use Packer to build a custom Vagrant box</h1>
+
+            <div class="info">
+    Posted on June  1, 2017
+    
+</div>
+
+<h3 id="this-post-will-demonstrate">This post will demonstrate:</h3>
+<ul>
+<li>using packer to run a build based on an existing vagrant box</li>
+<li>using the <code>vagrant</code> post-processor to generate a new vagrant box from that build</li>
+</ul>
+<h3 id="context">Context</h3>
+<p>Packer is really great at building images, and there are “builders” for all the various platforms (vmware, virtualbox, aws, docker, etc). Each of these builders start with an “input”, either an ISO to boot and install with, or a source image to use as a foundation. If you’ve used packer, you’ve probably automated the OS install for some Linux distro or BSD out there. It’s great that it can be done, but for some tasks, I’d like to start with an existing foundation.</p>
+<p>Vagrant has a concept of “boxes”, which is similar to an “image” in the container ecosystem (with each VM created from that template box as the “container” in the analogy). <a href="https://atlas.hashicorp.com/vagrant">There are many existing boxes</a>, so if you want to build a local dev environment for your peers, or want a place to test your configuration management formula, wouldn’t it be nice to start the packer build with an existing box?</p>
+<p>This is all great, however, there isn’t a clear and documented route to using an existing vagrant box as the source for a packer build. It’s still possible, here is how I did it.</p>
+<h3 id="initial-setup">Initial Setup</h3>
+<p>download &amp; install:</p>
+<ul>
+<li><code>vagrant</code> <a href="https://www.vagrantup.com/downloads.html">link</a></li>
+<li><code>packer</code> <a href="https://www.packer.io/downloads.html">link</a></li>
+<li><code>virtualbox</code> <a href="https://www.virtualbox.org/">link</a></li>
+</ul>
+<p>For me, that looked like:</p>
+<pre><code>ᐅ wget https://releases.hashicorp.com/vagrant/1.9.5/vagrant_1.9.5_x86_64.deb
+ᐅ sudo dpkg --install vagrant_1.9.5_x86_64.deb
+ᐅ vagrant version
+Installed Version: 1.9.5
+Latest Version: 1.9.5
+
+ You're running an up-to-date version of Vagrant!</code></pre>
+<pre><code>ᐅ wget https://releases.hashicorp.com/packer/1.0.0/packer_1.0.0_linux_amd64.zip
+ᐅ unzip packer_1.0.0_linux_amd64.zip -d ~/bin/
+ᐅ packer version
+Packer v1.0.0</code></pre>
+<pre><code>ᐅ wget http://download.virtualbox.org/virtualbox/5.1.22/virtualbox-5.1_5.1.22-115126\~Ubuntu\~trusty_amd64.deb
+ᐅ sudo dpkg --install virtualbox-5.1_5.1.22-115126\~Ubuntu\~trusty_amd64.deb
+ᐅ virtualbox --help | head -n 2
+Oracle VM VirtualBox Manager 5.1.22
+(C) 2005-2017 Oracle Corporation</code></pre>
+<p>Got everything? Great!</p>
+<h3 id="grab-the-box">Grab the box</h3>
+<p>Let’s say you have chosen the <code>ubuntu/trusty64</code> box as the foundation for the packer build.</p>
+<p>Grab it!</p>
+<pre><code>ᐅ vagrant box add ubuntu/trusty64 --provider virtualbox
+==&gt; box: Loading metadata for box 'ubuntu/trusty64'
+    box: URL: https://atlas.hashicorp.com/ubuntu/trusty64
+==&gt; box: Adding box 'ubuntu/trusty64' (v20170530.0.1) for provider: virtualbox
+    box: Downloading: https://atlas.hashicorp.com/ubuntu/boxes/trusty64/versions/20170530.0.1/providers/virtualbox.box
+==&gt; box: Successfully added box 'ubuntu/trusty64' (v20170530.0.1) for 'virtualbox'!</code></pre>
+<h3 id="the-ovf">The OVF</h3>
+<p>Now, we’ve “imported” this box into vagrant, but we need to tell Packer about a disk image it can use for the build (like an OVF file).</p>
+<p>If we poke around Vagrant’s .path, we’ll find that OVF:</p>
+<pre><code>ᐅ ls -Alh ~/.vagrant.d/boxes/ubuntu-VAGRANTSLASH-trusty64/20170530.0.1/virtualbox
+total 426M
+426M Jun  1 07:41 box-disk1.vmdk
+ 11K Jun  1 07:40 box.ovf
+  25 Jun  1 07:41 metadata.json
+ 505 Jun  1 07:40 Vagrantfile</code></pre>
+<p>If you remember, we imported the <code>20170530.0.1</code> version of the <code>ubuntu/trusty64</code> box. The pattern here is simple to see: <code>~/.vagrant.d/boxes/$REPO-VAGRANTSLASH-$BOX/$VERSION/$VM_PROVIDER/box.ovf</code></p>
+<h3 id="packer-build-template">Packer build template</h3>
+<p>Let’s plug this into an example build template. We will use the <code>virtualbox-ovf</code> builder to import the existing Vagrant box, some provisioners to customize that box, and finally the <code>vagrant</code> post-processor to export our customizations as a new box that we can import into Vagrant:</p>
+<pre><code>{
+  &quot;variables&quot;: {
+    &quot;home&quot;:    &quot;{{env `HOME`}}&quot;,
+    &quot;out_dir&quot;: &quot;output-box&quot;,
+    &quot;name&quot;:    &quot;base-host&quot;,
+    &quot;box&quot;:     &quot;trusty64&quot;,
+    &quot;repo&quot;:    &quot;ubuntu&quot;,
+    &quot;version&quot;: &quot;20170526.4.0&quot;
+  },
+  &quot;builders&quot;: [{
+    &quot;type&quot;: &quot;virtualbox-ovf&quot;,
+    &quot;source_path&quot;: &quot;{{user `home`}}/.vagrant.d/boxes/{{user `repo`}}-VAGRANTSLASH-{{user `box`}}/{{user `version`}}/virtualbox/box.ovf&quot;,
+    &quot;ssh_username&quot;: &quot;vagrant&quot;,
+    &quot;ssh_password&quot;: &quot;vagrant&quot;,
+    &quot;ssh_wait_timeout&quot;: &quot;90s&quot;,
+    &quot;shutdown_command&quot;: &quot;echo 'packer' | sudo -S shutdown -P now&quot;
+  }],
+  &quot;provisioners&quot;: [ ... ],
+  &quot;post-processors&quot;: [{
+    &quot;type&quot;: &quot;vagrant&quot;,
+    &quot;keep_input_artifact&quot;: true,
+    &quot;output&quot;: &quot;{{user `out_dir`}}/{{user `name`}}-{{user `repo`}}-{{user `box`}}-{{user `version`}}.box&quot;
+  }]
+}</code></pre>
+<h3 id="import-into-vagrant">Import into Vagrant!</h3>
+<pre><code>ᐅ vagrant box add base-host output-box/base-host-ubuntu-trusty64-20170526.4.0.box</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
