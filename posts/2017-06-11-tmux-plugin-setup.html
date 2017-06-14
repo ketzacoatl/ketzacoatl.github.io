@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Tmux Plugins You Should Use</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Tmux Plugins You Should Use</h1>
+
+            <div class="info">
+    Posted on June 11, 2017
+    
+</div>
+
+<p>Plenty has been written about <a href="https://tmux.github.io/">Tmux</a>, so I won’t bore you with any of those details. This post is about the existence of Tmux’s plugin ecosystem. It’s great, and I will encourage you to start using it if you haven’t already.</p>
+<h3 id="tmux-plugin-manager-tpm">Tmux Plugin Manager (tpm)</h3>
+<p>Installing <a href="https://github.com/tmux-plugins/tpm">tpm</a> is our first step towards using plugins with Tmux. From the <a href="https://github.com/tmux-plugins/tpm/blob/master/README.md">README</a>:</p>
+<pre><code>git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm</code></pre>
+<p>and add the following to the bottom of <code>.tmux.conf</code>:</p>
+<pre><code># List of plugins
+set -g @plugin 'tmux-plugins/tpm'
+# basic tmux settings everyone can agree on 
+set -g @plugin 'tmux-plugins/tmux-sensible'
+
+# Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
+run '~/.tmux/plugins/tpm/tpm'</code></pre>
+<p>Then reload the config with <code>tmux source ~/.tmux.conf</code>.</p>
+<p>This is similar to the install/config/workflow for plugins in VIM.</p>
+<p>As noted in the README, there are a few forms one can use to list the plugins in the tmux config:</p>
+<pre><code># set -g @plugin 'github_username/plugin_name'
+# set -g @plugin 'git@github.com/user/plugin'
+# set -g @plugin 'git@bitbucket.com/user/plugin'</code></pre>
+<h3 id="installing-plugins">Installing Plugins</h3>
+<p>Once you have added plugins to <code>.tmux.conf</code>, you’ll want to instruct <code>tpm</code> to install those plugins: <code>prefix</code> + <code>I</code> (install) to fetch.</p>
+<p>By default, plugins are installed into <code>~/.tmux/plugins/</code></p>
+<h3 id="plugins-on-github">Plugins on Github</h3>
+<p>There is a <a href="https://github.com/tmux-plugins"><code>tmux-plugins</code> org on github</a> with various curated plugins worth reviewing.</p>
+<p>The two plugins I <em>highly</em> recommend are:</p>
+<ul>
+<li><a href="https://github.com/tmux-plugins/tmux-continuum"><code>tmux-continuum</code></a>: Continuous saving of tmux environment.</li>
+<li><a href="https://github.com/tmux-plugins/tmux-resurrect"><code>tmux-resurrect</code></a>: Persists tmux environment across system restarts.</li>
+</ul>
+<p><a href="https://github.com/tmux-plugins/tmux-sensible">Sensible</a>, <a href="https://github.com/tmux-plugins/tmux-copycat">CopyCat</a>, <a href="https://github.com/tmux-plugins/tmux-yank">Yank</a>, and <a href="https://github.com/tmux-plugins/tmux-logging">Logging</a> are all worth a quick review as well.</p>
+<p>Goodluck and have fun!</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
