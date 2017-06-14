@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 3: Writing Data to Postgres</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 3: Writing Data to Postgres</h1>
+
+            <div class="info">
+    Posted on March  4, 2017
+    
+</div>
+
+<p>In <a href="2017-03-03-JSON-POST-processing-in-openresty.html">Part 2</a> of this series we used Lua and Openresty to process JSON in a POST request. The example was minimal (we simply echoed the POST data to the response with no change), but we expanded on our initial foundation with some key points for the demo:</p>
+<ul>
+<li>handle a POST request with Openresty</li>
+<li>capture and process the JSON data included with that request</li>
+<li>install a lua module, build a docker image, and expand the <code>Makefile</code></li>
+</ul>
+<p>Here in Part 3 we will build on that with a few additions:</p>
+<ul>
+<li>setup the connection to postgres (from lua in nginx)</li>
+<li>write the JSON POST data to a table in postgres, before the echo response</li>
+<li>update the echo to write our own JSON message, including the POST JSON in our message (as a sub-key).</li>
+<li>explore the lua / postgres relationship</li>
+</ul>
+<h3 id="wheres-the-code">Where’s the Code?</h3>
+<p>If you are following along in the code, we’re at <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/04-write-to-postgres">04-write-to-postgres</a>.</p>
+<hr />
+<h3 id="first-goal-setup-and-run-postgres">First Goal: setup and run Postgres</h3>
+<p>If our primary task is to connect and write some data to Postgres, we need to run and setup Postgres in a way that nginx can connect to it.</p>
+<p>We’re going to need a second container for this, to run postgres. Let’s map out a few requirements for this aspect of the system:</p>
+<ul>
+<li>use an existing base image with postgres installed</li>
+<li>the image should be smart enough to “init” its database when needed</li>
+<li>we need to setup authentication, and nginx should be able to connect</li>
+</ul>
+<p>There is the <code>postgres:alpine</code> variant of the canonical image, we’ll use that as our base. The postgres image will auto-run <code>*.sh</code> or <code>*.sql</code> that are in the <code>/init</code> path in the image - we’ll rely on this to auto-create the tables (and in future exercises, to load initial data fixtures) for us. The <code>postgres</code> images will use <code>POSTGRES_PASSWORD</code>, <code>POSTGRES_DB</code>, and similar environment variables.</p>
+<p>Given that, our <code>Dockerfile</code> will be fairly simple:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
+<span class="kw">ENV</span>  POSTGRES_PASSWORD password
+<span class="kw">ENV</span>  POSTGRES_DB       lua-app
+<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/
+<span class="kw">RUN</span>  echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<p>The webapp in this example only needs a single, empty table, so <code>init.sql</code> is also very simple:</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</code></pre></div>
+<p>We can confirm this works by building and running the <code>db</code> image, then peeking into the database to confirm we have a <code>posts</code> table:</p>
+<pre><code>ᐅ docker exec -it db psql -U postgres -d lua-app
+psql (9.6.2)
+Type &quot;help&quot; for help.
+
+lua-app=# \dt
+         List of relations
+ Schema | Name  | Type  |  Owner
+--------+-------+-------+----------
+ public | posts | table | postgres
+(1 row)
+
+lua-app=# ^D\q</code></pre>
+<p>Yay! There is the <code>posts</code> table.</p>
+<hr />
+<h3 id="second-goal-get-lua-connected-to-the-database">Second Goal: Get lua connected to the database</h3>
+<p>As in any other language, connecting lua to Postgres is best with some module or library to handle the details of the connection (and submitting queries/etc). After researching the topic a little, I decided I would test out <a href="https://github.com/leafo/pgmoon"><code>pgmoon</code></a> first.</p>
+<p>There are a few ways to carry out the details, but it’ll all look similar and likely use the <code>new()</code>, <code>pg:connect()</code>, <code>pg:query()</code>, and <code>json.encode_json()</code> functions. Here is the <code>nginx.conf</code> I ended up with:</p>
+<pre class="nginx"><code>worker_processes  1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            content_by_lua '
+                local cjson = require &quot;cjson&quot;
+                local pgmoon = require(&quot;pgmoon&quot;)
+                local pg = pgmoon.new({
+                  host     = &quot;127.0.0.1&quot;,
+                  port     = &quot;5432&quot;,
+                  user     = &quot;postgres&quot;,
+                  password = &quot;password&quot;,
+                  database = &quot;lua-app&quot;
+                })
+                assert(pg:connect())
+                local encode_json = require(&quot;pgmoon.json&quot;).encode_json
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                assert(pg:query(&quot;INSERT INTO posts (data) VALUES(&quot; .. encode_json(post) .. &quot;);&quot;))
+                pg:keepalive()
+                pg = nil
+                ngx.status  = ngx.HTTP_OK
+                ngx.say(cjson.encode({status = &quot;saved&quot;, msg=post}))
+                return ngx.exit(ngx.HTTP_OK)
+            ';
+        }
+    }
+}</code></pre>
+<p>We will also need to install the <code>pgmoon</code> module. As we did with the <code>lua-resty-reqargs</code> module in the previous example, this goes into our <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+<span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<hr />
+<h3 id="build-and-run">Build and Run!</h3>
+<p>Here are the updates made to the <code>Makefile</code>:</p>
+<pre><code>build:
+        docker build --tag=db  --rm=true ./db
+        docker build --tag=app --rm=true ./app
+
+run:
+        docker run -d --name db  --net host -p 127.0.0.1:5342:5432 db
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 app
+
+clean:
+        docker stop db  || true
+        docker stop app || true
+        docker rm   db  || true
+        docker rm   app || true
+
+cat-posts:
+        docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+
+...</code></pre>
+<p>Create the <code>db</code> and <code>app</code> Docker images with <code>make build</code>:</p>
+<pre><code>ᐅ make build
+docker build --tag=db  --rm=true ./db
+Sending build context to Docker daemon 15.87 kB
+Step 1 : FROM postgres:alpine
+ ---&gt; f0476a087b97
+Step 2 : ENV POSTGRES_PASSWORD password
+ ---&gt; Running in 08b1c7802a49
+ ---&gt; 5324840fb862
+Removing intermediate container 08b1c7802a49
+Step 3 : ENV POSTGRES_DB lua-app
+ ---&gt; Running in 52f3111e0f3f
+ ---&gt; 126f7a77f9eb
+Removing intermediate container 52f3111e0f3f
+Step 4 : ADD init.sql /docker-entrypoint-initdb.d/
+ ---&gt; d1294db462c4
+Removing intermediate container ae40bad2713a
+Step 5 : RUN echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' &gt; /etc/nsswitch.conf
+ ---&gt; Running in 1b4276876287
+ ---&gt; e18cb105e24c
+Removing intermediate container 1b4276876287
+Successfully built e18cb105e24c
+docker build --tag=app --rm=true ./app
+Sending build context to Docker daemon 18.94 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install pgmoon
+ ---&gt; Running in 0e09ca9916e8
+Installing https://luarocks.org/pgmoon-1.8.0-1.src.rock...
+
+Missing dependencies for pgmoon:
+lpeg
+
+Using https://luarocks.org/pgmoon-1.8.0-1.src.rock... switching to 'build' mode
+Using https://luarocks.org/lpeg-1.0.1-1.src.rock... switching to 'build' mode
+gcc -O2 -fPIC -I/usr/local/openresty/luajit/include/luajit-2.1 -c lpcap.c -o lpcap.o
+gcc -O2 -fPIC -I/usr/local/openresty/luajit/include/luajit-2.1 -c lpcode.c -o lpcode.o
+gcc -O2 -fPIC -I/usr/local/openresty/luajit/include/luajit-2.1 -c lpprint.c -o lpprint.o
+gcc -O2 -fPIC -I/usr/local/openresty/luajit/include/luajit-2.1 -c lptree.c -o lptree.o
+gcc -O2 -fPIC -I/usr/local/openresty/luajit/include/luajit-2.1 -c lpvm.c -o lpvm.o
+gcc -shared -o lpeg.so -L/usr/local/openresty/luajit/lib lpcap.o lpcode.o lpprint.o lptree.o lpvm.o
+No existing manifest. Attempting to rebuild...
+Updating manifest for /usr/local/openresty/luajit/lib/luarocks/rocks
+lpeg 1.0.1-1 is now built and installed in /usr/local/openresty/luajit (license: MIT/X11)
+
+Updating manifest for /usr/local/openresty/luajit/lib/luarocks/rocks
+pgmoon 1.8.0-1 is now built and installed in /usr/local/openresty/luajit (license: MIT)
+
+ ---&gt; 1373c0014b0f
+Removing intermediate container 0e09ca9916e8
+Step 4 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+ ---&gt; Running in 22f051a9d6d4
+Installing https://luarocks.org/lua-resty-reqargs-1.4-1.src.rock...
+Using https://luarocks.org/lua-resty-reqargs-1.4-1.src.rock... switching to 'build' mode
+Updating manifest for /usr/local/openresty/luajit/lib/luarocks/rocks
+lua-resty-reqargs 1.4-1 is now built and installed in /usr/local/openresty/luajit (license: BSD)
+
+ ---&gt; 999ab5e6968c
+Removing intermediate container 22f051a9d6d4
+Step 5 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; 03c148603990
+Removing intermediate container c7628b45a991
+Step 6 : RUN echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' &gt; /etc/nsswitch.conf
+ ---&gt; Running in f777c48e88ee
+ ---&gt; 7a6c0f1dbc97
+Removing intermediate container f777c48e88ee
+Successfully built 7a6c0f1dbc97</code></pre>
+<p>Run the images as containers:</p>
+<pre><code>ᐅ make run
+docker run -d --name db  --net host -p 127.0.0.1:5342:5432 db
+433c5bb9f8287850b833a9ea95c79d738c544e677492de43e14ff42455958230
+docker run -d --name app --net host -p 127.0.0.1:8000:8000 app
+4f70737f053bec44a5538cb72bba4a2e59ebb4a7beb9231b748ed27d68bb5064</code></pre>
+<pre><code>ᐅ docker ps
+CONTAINER ID  IMAGE  COMMAND                 CREATED         STATUS         PORTS  NAMES
+4f70737f053b  app    &quot;/usr/local/openresty&quot;  17 seconds ago  Up 17 seconds         app
+433c5bb9f828  db     &quot;docker-entrypoint.sh&quot;  17 seconds ago  Up 17 seconds         db</code></pre>
+<p>Let’s send in some arbitrary JSON as a POST:</p>
+<pre><code>ᐅ curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/
+
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Fri, 03 Mar 2017 14:07:50 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;password&quot;:&quot;xyz&quot;,&quot;username&quot;:&quot;xyz&quot;}}</code></pre>
+<p>Is that in the database?</p>
+<pre><code>ᐅ make cat-posts
+docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+ id |                  data
+----+----------------------------------------
+  1 | {&quot;password&quot;: &quot;xyz&quot;, &quot;username&quot;: &quot;xyz&quot;}
+(1 row)</code></pre>
+<p>YAY!</p>
+<p>In this example, we can post arbitrary JSON:</p>
+<pre><code>ᐅ curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;some&quot;:&quot;arbitrary&quot;,&quot;json&quot;: {&quot;password&quot;:&quot;xyz&quot;}}' localhost:8000/
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;some&quot;:&quot;arbitrary&quot;,&quot;json&quot;:{&quot;password&quot;:&quot;xyz&quot;}}}</code></pre>
+<pre><code>ᐅ make cat-posts
+docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+ id |                        data
+----+----------------------------------------------------
+  1 | {&quot;password&quot;: &quot;xyz&quot;, &quot;username&quot;: &quot;xyz&quot;}
+  2 | {&quot;json&quot;: {&quot;password&quot;: &quot;xyz&quot;}, &quot;some&quot;: &quot;arbitrary&quot;}
+(2 rows)</code></pre>
+<p>If we give it invalid JSON, the situation is handled gracefully:</p>
+<pre><code>ᐅ curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;invalid&quot;: &quot;json&quot;' localhost:8000/
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{}}</code></pre>
+<p>However, with the example as it is now, the empty JSON object is written to the database:</p>
+<pre><code>ᐅ make cat-posts
+docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+ id |                        data
+----+----------------------------------------------------
+  1 | {&quot;password&quot;: &quot;xyz&quot;, &quot;username&quot;: &quot;xyz&quot;}
+  2 | {&quot;json&quot;: {&quot;password&quot;: &quot;xyz&quot;}, &quot;some&quot;: &quot;arbitrary&quot;}
+  3 | {}
+(3 rows)</code></pre>
+<p>Obviously, one would want to filter out those empty/invalid requests and respond with a more appropriate message and status code. I’m going to skip over making those updates for now.</p>
+<hr />
+<h3 id="bonus-debug-connection-issues-with-pgmoon">Bonus: Debug connection issues with <code>pgmoon</code></h3>
+<p>While working on the exercise above, I ran into trouble connecting the lua app to the database:</p>
+<pre class="nginx"><code>worker_processes  1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            default_type text/html;
+            content_by_lua '
+                local cjson = require &quot;cjson&quot;
+                local pgmoon = require(&quot;pgmoon&quot;)
+                local pg = pgmoon.new({
+                  host     = &quot;db&quot;,
+                  port     = &quot;5432&quot;,
+                  user     = &quot;postgres&quot;,
+                  password = &quot;password&quot;,
+                  database = &quot;lua-app&quot;,
+                })
+                pg:connect()
+                local encode_json = require(&quot;pgmoon.json&quot;).encode_json
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                assert(pg:query(&quot;INSERT INTO posts (msg) VALUES(&quot; .. encode_json(post) .. &quot;)&quot;))
+                ngx.status  = ngx.HTTP_OK
+                ngx.say(cjson.encode({status = &quot;saved&quot;, msg=post}))
+                return ngx.exit(ngx.HTTP_OK)
+            ';
+        }
+    }
+}</code></pre>
+<p>would fail with…</p>
+<pre><code>2017/03/03 11:10:16 [error] 49#49: *10 attempt to send data on a closed socket: u:0000000041B484A0, c:0000000000000000, ft:8 eof:0, client: 127.0.0.1, server: , request: &quot;POST / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;
+2017/03/03 11:10:16 [error] 49#49: *10 attempt to receive data on a closed socket: u:0000000041B484A0, c:0000000000000000, ft:8 eof:0, client: 127.0.0.1, server: , request: &quot;POST / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;
+2017/03/03 11:10:16 [error] 49#49: *10 lua entry thread aborted: runtime error: content_by_lua(nginx.conf:33):14: receive_message: failed to get type: closed
+stack traceback:
+coroutine 0:
+        [C]: in function 'assert'
+        content_by_lua(nginx.conf:33):14: in function &lt;content_by_lua(nginx.conf:33):1&gt;, client: 127.0.0.1, server: , request: &quot;POST / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;
+^Cmake: [logs] Error 130</code></pre>
+<p>Woah, that’s a little confusing! While it <em>does</em> make sense when you know about the details, it took me some hacking around with the code and env in the docker containers to figure out what was going on. Short explanation: the connect is failing, returns nil, and the query is attempted on a socket that is not connected to postgres.</p>
+<p>It’d be nice if the error were more clear, and we can help make that happen by wrapping the <code>pg:connect()</code> with <code>assert()</code>, to end up with: <code>assert(pg:connect())</code>. Now the error will be like:</p>
+<pre><code>2017/03/03 00:19:29 [error] 88#88: *21 lua entry thread aborted: runtime error: content_by_lua(nginx.conf:33):11: no resolver defined to resolve &quot;db&quot;
+stack traceback:
+coroutine 0:
+        [C]: in function 'assert'
+        content_by_lua(nginx.conf:33):11: in function &lt;content_by_lua(nginx.conf:33):1&gt;, client: 172.17.0.1, server: , request: &quot;POST / HTTP/1.1&quot;, host: &quot;localhost:8000&quot;</code></pre>
+<p>That’s a lot more specific, and gets us closer to the actual issue: the lua script is “unable to find (resolve the hostname) <code>db</code>”.</p>
+<p>To look at what’s going on, let’s drop into the container and check out the connectivity between the app and db containers:</p>
+<pre><code>ᐅ docker exec -it app /bin/sh
+/ # cat /etc/hosts
+172.17.0.3      3751a3f850b9
+127.0.0.1       localhost
+::1     localhost ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+172.17.0.2      db 0c0649632873
+/ # ping db
+PING db (172.17.0.2): 56 data bytes
+64 bytes from 172.17.0.2: seq=0 ttl=64 time=0.139 ms
+64 bytes from 172.17.0.2: seq=1 ttl=64 time=0.098 ms
+^C
+--- db ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 0.098/0.118/0.139 ms</code></pre>
+<p>OK, so the container linking works as expected, but lua errors with: <code>no resolver defined to resolve &quot;db&quot;</code>. If I use the IP of the linked container, the connection works as expected. This is likely to be an issue with the (super minimal) alpine base image I am using (need some dns utils or some such).</p>
+<p>With some research, I found that <code>/etc/nsswitch.conf</code> is missing in alpine, and glibc apps may skip consulting <code>/etc/hosts</code> (where <code>db</code> is defined when using <code>--link</code> in docker). Theoretically, adding <code>hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4</code> to <code>/etc/nsswitch.conf</code> will tell glibc apps to use <code>/etc/hosts</code> first. We can then add this to the docker image build (<code>Dockerfile</code>), so it is ready to go at runtime:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<p>Here are some helpful resources on this topic:</p>
+<ul>
+<li>http://unix.stackexchange.com/questions/52954/nsswitch-conf-versus-host-conf</li>
+<li>https://github.com/docker-library/golang/pull/76/files</li>
+<li>https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/issues/2142</li>
+</ul>
+<p>Updating <code>/etc/nsswitch.conf</code> hasn’t worked as expected. While I am sure I can dig deeper and resolve that issue, this is an issue I’m going to skip for now. My reasoning is that this is specific to alpine, which is an implementation detail in this exercise, I want to get back to the exercise, and I have a work-around I can use for now.</p>
+<p>The work around is to use <code>--net=host</code>, bind on <code>127.0.0.1</code>, and use that when connecting to the db. In a more “production quality” deployment, I would opt for using consul or similar for service discovery, and would update the alpine images to include consul for DNS lookups.</p>
+<hr />
+<p>Time Tracking: since last check: 2.5 hours; total: 6 hours</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
