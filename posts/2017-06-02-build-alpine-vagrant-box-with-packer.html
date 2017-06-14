@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Using Packer to Build Alpine Linux Box for Vagrant</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Using Packer to Build Alpine Linux Box for Vagrant</h1>
+
+            <div class="info">
+    Posted on June  2, 2017
+    
+</div>
+
+<p>Auto-installing Alpine thru VirtualBox may fail if the build takes too long to complete. Conservative delays are used, but they make the build long. To make the build less strenuous, install from ISO and provisioning (installing packages, configuring services, adding users, etc) are two separate steps (eg, separate packer builds).</p>
+<p>Here is the <a href="https://github.com/ketzacoatl/packer-alpine/tree/master/00-iso-install">first build</a>, the bare minimum install of Alpine from an upstream ISO:</p>
+<pre><code>ᐅ packer build alpine-iso-install.json                                                                              
+virtualbox-iso output will be in this color.
+
+==&gt; virtualbox-iso: Downloading or copying ISO
+    virtualbox-iso: Downloading or copying: https://nl.alpinelinux.org/alpine/v3.6/releases/x86_64/alpine-virt-3.6.1-x86_64.iso
+==&gt; virtualbox-iso: Starting HTTP server on port 8835
+==&gt; virtualbox-iso: Creating virtual machine...
+==&gt; virtualbox-iso: Creating hard drive...
+==&gt; virtualbox-iso: Creating forwarded port mapping for communicator (SSH, WinRM, etc) (host port 3883)
+==&gt; virtualbox-iso: Executing custom VBoxManage commands...
+    virtualbox-iso: Executing: modifyvm alpine-amd64-3.6.1 --memory 512
+    virtualbox-iso: Executing: modifyvm alpine-amd64-3.6.1 --cpus 1
+==&gt; virtualbox-iso: Starting the virtual machine...
+==&gt; virtualbox-iso: Waiting 30s for boot...
+==&gt; virtualbox-iso: Typing the boot command...
+==&gt; virtualbox-iso: Waiting for SSH to become available...
+==&gt; virtualbox-iso: Connected to SSH!
+==&gt; virtualbox-iso: Uploading VirtualBox version info (5.0.10)
+==&gt; virtualbox-iso: Gracefully halting virtual machine...
+==&gt; virtualbox-iso: Preparing to export machine...
+    virtualbox-iso: Deleting forwarded port mapping for the communicator (SSH, WinRM, etc) (host port 3883)
+==&gt; virtualbox-iso: Exporting virtual machine...
+    virtualbox-iso: Executing: export alpine-amd64-3.6.1 --output output-virtualbox-iso/alpine-amd64-3.6.1.ovf
+==&gt; virtualbox-iso: Unregistering and deleting virtual machine...
+==&gt; virtualbox-iso: Running post-processor: vagrant
+==&gt; virtualbox-iso (vagrant): Creating Vagrant box for 'virtualbox' provider
+    virtualbox-iso (vagrant): Copying from artifact: output-virtualbox-iso/alpine-amd64-3.6.1-disk1.vmdk
+    virtualbox-iso (vagrant): Copying from artifact: output-virtualbox-iso/alpine-amd64-3.6.1.ovf
+    virtualbox-iso (vagrant): Renaming the OVF to box.ovf...
+    virtualbox-iso (vagrant): Compressing: Vagrantfile
+    virtualbox-iso (vagrant): Compressing: alpine-amd64-3.6.1-disk1.vmdk
+    virtualbox-iso (vagrant): Compressing: box.ovf
+    virtualbox-iso (vagrant): Compressing: metadata.json
+Build 'virtualbox-iso' finished.
+
+==&gt; Builds finished. The artifacts of successful builds are:
+--&gt; virtualbox-iso: VM files in directory: output-virtualbox-iso
+--&gt; virtualbox-iso: 'virtualbox' provider box: out/alpine-clean-3.6.1.box</code></pre>
+<p>That build produces a box that can be loaded up into Vagrant with: <code>vagrant box add alpine-clean-3.6.1 out/alpine-clean-3.6.1.box</code>.</p>
+<p>We can now use this OVF to run <a href="https://github.com/ketzacoatl/packer-alpine/blob/master/01-alpine-base/">another build</a> to complete the provisioning process:</p>
+<pre><code>ᐅ packer build alpine-base.json
+virtualbox-ovf output will be in this color.
+
+==&gt; virtualbox-ovf: Downloading or copying OVF/OVA
+    virtualbox-ovf: Downloading or copying: file:///src/packer-alpine/00-iso-install/output-virtualbox-iso/alpine-amd64-3.6.1.ovf
+==&gt; virtualbox-ovf: Importing VM: /src/packer-alpine/00-iso-install/output-virtualbox-iso/alpine-amd64-3.6.1.ovf
+==&gt; virtualbox-ovf: Creating forwarded port mapping for communicator (SSH, WinRM, etc) (host port 2595)
+==&gt; virtualbox-ovf: Executing custom VBoxManage commands...
+    virtualbox-ovf: Executing: modifyvm alpine-amd64-3.6.1 --memory 512
+    virtualbox-ovf: Executing: modifyvm alpine-amd64-3.6.1 --cpus 1
+==&gt; virtualbox-ovf: Starting the virtual machine...
+==&gt; virtualbox-ovf: Waiting 30s for boot...
+==&gt; virtualbox-ovf: Typing the boot command...
+==&gt; virtualbox-ovf: Waiting for SSH to become available...
+==&gt; virtualbox-ovf: Connected to SSH!
+==&gt; virtualbox-ovf: Uploading VirtualBox version info (5.0.10)
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/00-apk.sh
+    virtualbox-ovf: + set -exu
+    virtualbox-ovf: + apk upgrade -U --available
+    virtualbox-ovf: fetch http://dl-5.alpinelinux.org/alpine/v3.6/main/x86_64/APKINDEX.tar.gz
+    virtualbox-ovf: OK: 98 MiB in 37 packages
+    virtualbox-ovf: + source /etc/os-release
+    virtualbox-ovf: + NAME=Alpine Linux
+    virtualbox-ovf: + ID=alpine
+    virtualbox-ovf: + VERSION_ID=3.6.1
+    virtualbox-ovf: + PRETTY_NAME=Alpine Linux v3.6
+    virtualbox-ovf: + HOME_URL=http://alpinelinux.org
+    virtualbox-ovf: + BUG_REPORT_URL=http://bugs.alpinelinux.org
+    virtualbox-ovf: + apk add bash ca-certificates wget curl
+    virtualbox-ovf: (1/10) Installing ncurses-terminfo-base (6.0-r7)
+    virtualbox-ovf: (2/10) Installing ncurses-terminfo (6.0-r7)
+    virtualbox-ovf: (3/10) Installing ncurses-libs (6.0-r7)
+    virtualbox-ovf: (4/10) Installing readline (6.3.008-r5)
+    virtualbox-ovf: (5/10) Installing bash (4.3.48-r1)
+    virtualbox-ovf: Executing bash-4.3.48-r1.post-install
+
+vf: (6/10) Installing ca-certificates (20161130-r2)
+    virtualbox-ovf: (7/10) Installing libssh2 (1.8.0-r1)
+    virtualbox-ovf: (8/10) Installing libcurl (7.54.0-r0)
+    virtualbox-ovf: (9/10) Installing curl (7.54.0-r0)
+    virtualbox-ovf: (10/10) Installing wget (1.19.1-r2)
+    virtualbox-ovf: Executing busybox-1.26.2-r4.trigger
+    virtualbox-ovf: Executing ca-certificates-20161130-r2.trigger
+    virtualbox-ovf: OK: 108 MiB in 47 packages
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/01-sshd.sh
+    virtualbox-ovf: + set -eux
+    virtualbox-ovf: + sed -i /^PermitRootLogin yes/d /etc/ssh/sshd_config
+    virtualbox-ovf: + echo UseDNS no
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/02-vagrant.sh
+    virtualbox-ovf: + set -exu
+    virtualbox-ovf: + date
+    virtualbox-ovf: + adduser -D vagrant
+    virtualbox-ovf: + chpasswd
+    virtualbox-ovf: + echo vagrant:vagrant
+    virtualbox-ovf: chpasswd: password for 'vagrant' changed
+    virtualbox-ovf: + mkdir -pm 700 /home/vagrant/.ssh
+    virtualbox-ovf: + chown -R vagrant:vagrant /home/vagrant/.ssh
+    virtualbox-ovf: + chmod -R go-rwsx /home/vagrant/.ssh
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/03-sudo.sh
+    virtualbox-ovf: + set -eux
+    virtualbox-ovf: + apk add sudo
+    virtualbox-ovf: (1/1) Installing sudo (1.8.19_p2-r0)
+    virtualbox-ovf: Executing busybox-1.26.2-r4.trigger
+    virtualbox-ovf: OK: 109 MiB in 48 packages
+    virtualbox-ovf: + adduser vagrant wheel
+    virtualbox-ovf: + echo Defaults exempt_group=wheel
+    virtualbox-ovf: + echo %wheel ALL=NOPASSWD:ALL
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/98-cleanup.sh
+    virtualbox-ovf: + rm -rf /var/cache/apk/APKINDEX.3029cfab.tar.gz
+    virtualbox-ovf: + rm -rf /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ed25519_k
+ey /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub
+==&gt; virtualbox-ovf: Provisioning with shell script: scripts/99-minimize.sh
+    virtualbox-ovf: + set -ux
+    virtualbox-ovf: + dd if=/dev/zero of=/EMPTY bs=1M
+    virtualbox-ovf: dd: writing '/EMPTY': No space left on device
+    virtualbox-ovf: 525+0 records in
+    virtualbox-ovf: 523+1 records out
+    virtualbox-ovf: + rm -f /EMPTY
+    virtualbox-ovf: + sync
+    virtualbox-ovf: + sync
+    virtualbox-ovf: + sync
+    virtualbox-ovf: + exit 0
+==&gt; virtualbox-ovf: Gracefully halting virtual machine...
+==&gt; virtualbox-ovf: Preparing to export machine...
+    virtualbox-ovf: Deleting forwarded port mapping for the communicator (SSH, WinRM, etc) (host port 2595)
+==&gt; virtualbox-ovf: Exporting virtual machine...
+    virtualbox-ovf: Executing: export alpine-amd64-3.6.1 --output output-virtualbox-ovf/alpine-amd64-3.6.1.ovf
+==&gt; virtualbox-ovf: Unregistering and deleting imported VM...
+==&gt; virtualbox-ovf: Running post-processor: vagrant
+==&gt; virtualbox-ovf (vagrant): Creating Vagrant box for 'virtualbox' provider
+    virtualbox-ovf (vagrant): Copying from artifact: output-virtualbox-ovf/alpine-amd64-3.6.1-disk1.vmdk
+    virtualbox-ovf (vagrant): Copying from artifact: output-virtualbox-ovf/alpine-amd64-3.6.1.ovf
+    virtualbox-ovf (vagrant): Renaming the OVF to box.ovf...
+    virtualbox-ovf (vagrant): Compressing: Vagrantfile
+    virtualbox-ovf (vagrant): Compressing: alpine-amd64-3.6.1-disk1.vmdk
+    virtualbox-ovf (vagrant): Compressing: box.ovf
+    virtualbox-ovf (vagrant): Compressing: metadata.json
+Build 'virtualbox-ovf' finished.
+
+==&gt; Builds finished. The artifacts of successful builds are:
+--&gt; virtualbox-ovf: VM files in directory: output-virtualbox-ovf
+--&gt; virtualbox-ovf: 'virtualbox' provider box: out/alpine-base-3.6.1.box</code></pre>
+<p>How small is the image?</p>
+<pre><code>ᐅ ls -lh out/alpine-base-3.6.1.box
+-rw-r--r-- 1 user user 37M Jun  2 22:22 out/alpine-base-3.6.1.box</code></pre>
+<p>WOW, <em>37M</em> without a lot of trouble.</p>
+<p>We can now add that box to <code>vagrant</code> with:</p>
+<pre><code>ᐅ vagrant box add alpine-base-3.6.1 out/alpine-base-3.6.1.box
+==&gt; box: Box file was not detected as metadata. Adding it directly...
+==&gt; box: Adding box 'alpine-base-3.6.1' (v0) for provider: 
+    box: Unpacking necessary files from: file:///src/packer-alpine/01-alpine-base/out/alpine-base-3.6.1.box
+    ==&gt; box: Successfully added box 'alpine-base-3.6.1' (v0) for 'virtualbox'!</code></pre>
+<p>See the <a href="https://github.com/ketzacoatl/packer-alpine">full code here</a>.</p>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
