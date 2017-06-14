@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Use Packer to build a custom Vagrant box</title>
+        <title>Spaceship Earth - Use Packer to build a custom Vagrant Box, from another Vagrant Box</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
     </head>
@@ -22,7 +22,7 @@
         </div>
 
         <div id="content">
-            <h1>Use Packer to build a custom Vagrant box</h1>
+            <h1>Use Packer to build a custom Vagrant Box, from another Vagrant Box</h1>
 
             <div class="info">
     Posted on June  1, 2017
@@ -110,6 +110,12 @@ total 426M
 }</code></pre>
 <h3 id="import-into-vagrant">Import into Vagrant!</h3>
 <pre><code>ᐅ vagrant box add base-host output-box/base-host-ubuntu-trusty64-20170526.4.0.box</code></pre>
+<h3 id="helpful-resources">Helpful Resources</h3>
+<ul>
+<li><a href="https://www.vagrantup.com/docs/boxes.html">Vagrant Boxes</a></li>
+<li><a href="https://www.packer.io/docs/post-processors/vagrant.html">Packer’s Vagrant Post-Processor</a></li>
+<li><a href="https://www.packer.io/docs/builders/virtualbox-ovf.html">Packer’s VirtualBox OVF Builder</a></li>
+</ul>
 
         </div>
         <div id="footer">
