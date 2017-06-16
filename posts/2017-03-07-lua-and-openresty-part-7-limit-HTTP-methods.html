@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 7: Limit HTTP Methods</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 7: Limit HTTP Methods</h1>
+
+            <div class="info">
+    Posted on March  7, 2017
+    
+</div>
+
+<p>In <a href="2017-03-06-lua-and-openresty-part-6-data-processing-sink.html">Part 6</a> of this series, we demonstrated how to write a simple but effective data processing sink with redis as the queue to safely store message before and during processing.</p>
+<p>In this post, we’ll take a short detour to briefly investigate conditionals based on the HTTP method used in the request.</p>
+<p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/08-limit-http-methods">we are here</a>.</p>
+<h2 id="restricting-access-based-on-http-method">Restricting access based on HTTP method</h2>
+<p>Let’s say you have an endpoint that accepts <code>GET</code> and <code>POST</code>, how do you ensure you only process requests of those type, and block non-allowed methods as early as possible? The purpose of this exercise is to demonstrate how to inspect and react to the specific HTTP method used to access the URI location. While there are multiple ways to accomplish this directly in <code>nginx.conf</code>, we will use Lua to inspect and take action on these methods.</p>
+<h3 id="micro-example">Micro Example</h3>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> http_method <span class="ot">=</span> ngx<span class="ot">.</span>var<span class="ot">.</span>request_method
+<span class="kw">if</span> http_method <span class="ot">==</span> ngx<span class="ot">.</span>HTTP_GET <span class="kw">then</span>
+  <span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_OK
+  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> <span class="st">&quot;GET&quot;</span><span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;allowed&quot;</span><span class="ot">}))</span>
+  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_OK<span class="ot">)</span>
+<span class="kw">else</span>
+  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_NOT_ALLOWED
+  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> http_method <span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;denied&quot;</span><span class="ot">}))</span>
+  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_NOT_ALLOWED<span class="ot">)</span>
+<span class="kw">end</span></code></pre></div>
+<p>Note.. in testing this, <code>ngx.HTTP_GET</code> appears to be <code>2</code>, while <code>ngx.HTTP_POST</code> is <code>8</code>, so I have used this instead:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> http_method <span class="ot">=</span> ngx<span class="ot">.</span>var<span class="ot">.</span>request_method
+<span class="kw">if</span> http_method <span class="ot">==</span> <span class="st">&quot;GET&quot;</span> <span class="kw">then</span>
+  <span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_OK
+  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> <span class="st">&quot;GET&quot;</span><span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;allowed&quot;</span><span class="ot">}))</span>
+  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_OK<span class="ot">)</span>
+<span class="kw">else</span>
+  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_NOT_ALLOWED
+  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> http_method <span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;denied&quot;</span><span class="ot">}))</span>
+  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_NOT_ALLOWED<span class="ot">)</span>
+<span class="kw">end</span></code></pre></div>
+<h3 id="put-it-into-a-webapp">Put it into a webapp</h3>
+<p>With some initial tests using the snippet above, we settle on the following:</p>
+<pre class="nginx"><code>worker_processes  1;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location /get {
+            content_by_lua '
+              local cjson = require &quot;cjson&quot;
+              local http_method = ngx.var.request_method
+              if http_method == &quot;GET&quot; then
+                ngx.status = ngx.HTTP_OK
+                ngx.say(cjson.encode({method = &quot;GET&quot;, status = &quot;allowed&quot;}))
+                return ngx.exit(ngx.HTTP_OK)
+              else
+                ngx.status = ngx.HTTP_NOT_ALLOWED
+                ngx.say(cjson.encode({method = http_method , status = &quot;denied&quot;}))
+                return ngx.exit(ngx.HTTP_NOT_ALLOWED)
+              end
+            ';
+        }
+        location /post {
+            content_by_lua '
+              local cjson = require &quot;cjson&quot;
+              local http_method = ngx.var.request_method
+              if http_method == &quot;POST&quot; then
+                ngx.status = ngx.HTTP_OK
+                ngx.say(cjson.encode({method = &quot;POST&quot;, status = &quot;allowed&quot;}))
+                return ngx.exit(ngx.HTTP_OK)
+              else
+                ngx.status = ngx.HTTP_NOT_ALLOWED
+                ngx.say(cjson.encode({method = http_method , status = &quot;denied&quot;}))
+                return ngx.exit(ngx.HTTP_NOT_ALLOWED)
+              end
+            ';
+        }
+    }
+}</code></pre>
+<p>Here is the <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</code></pre></div>
+<p>The <code>Makefile</code>:</p>
+<pre><code>build:
+        docker build --tag=app:8 --rm=true ./
+
+run:
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:8
+
+dev:
+        docker run --rm -it --name app --net host --entrypoint /bin/sh -v `pwd`/app:/src app:8
+
+clean:
+        docker stop app || true
+        docker rm   app || true
+
+reload:
+        docker exec -it app /usr/local/openresty/nginx/sbin/nginx -s reload
+
+logs:
+        docker exec -it app tail -f /usr/local/openresty/nginx/error.log
+
+test:
+        curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/get
+        curl -i -H &quot;Content-Type: application/json&quot;                                                  localhost:8000/get
+        curl -i -H &quot;Content-Type: application/json&quot;                                                  localhost:8000/post
+        curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/post</code></pre>
+<h3 id="build-the-image">Build the Image</h3>
+<pre><code>ᐅ make build
+docker build --tag=app:8 --rm=true ./
+Sending build context to Docker daemon 6.144 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+ ---&gt; Using cache
+ ---&gt; 88eaefcb0701
+Step 4 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; 0f06fa265a56
+Removing intermediate container 17a6406417d9
+Successfully built 0f06fa265a56</code></pre>
+<h3 id="run-the-image">Run the image</h3>
+<pre><code>ᐅ make run
+docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:8
+2f52d4449835fe5bc3cfe3881e45c442d742bf1bfbd784d201e1ef3872615a5d</code></pre>
+<h3 id="run-tests-on-the-webapp">Run tests on the webapp</h3>
+<pre><code>ᐅ make test
+curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/get
+HTTP/1.1 405 Not Allowed
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 05:22:31 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;denied&quot;,&quot;method&quot;:&quot;POST&quot;}
+curl -i -H &quot;Content-Type: application/json&quot;                                                  localhost:8000/get
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 05:22:31 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;allowed&quot;,&quot;method&quot;:&quot;GET&quot;}
+curl -i -H &quot;Content-Type: application/json&quot;                                                  localhost:8000/post
+HTTP/1.1 405 Not Allowed
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 05:22:31 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;denied&quot;,&quot;method&quot;:&quot;GET&quot;}
+curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/post
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 05:22:31 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;allowed&quot;,&quot;method&quot;:&quot;POST&quot;}</code></pre>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

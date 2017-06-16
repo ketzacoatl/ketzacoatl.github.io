@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Lua and Openresty, (another) Interlude: Exploring Lua's `package.path`</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Lua and Openresty, (another) Interlude: Exploring Lua's `package.path`</h1>
+
+            <div class="info">
+    Posted on March  7, 2017
+    
+</div>
+
+<h3 id="exploring-package.path">Exploring <code>package.path</code></h3>
+<p>Every now and again, I run into something like:</p>
+<pre><code>/ # lua /src/worker.lua
+lua: /src/worker.lua:1: module 'cjson' not found:
+        no field package.preload['cjson']
+        no file './cjson.lua'
+        no file '/usr/local/share/lua/5.1/cjson.lua'
+        no file '/usr/local/share/lua/5.1/cjson/init.lua'
+        no file '/usr/local/lib/lua/5.1/cjson.lua'
+        no file '/usr/local/lib/lua/5.1/cjson/init.lua'
+        no file '/usr/share/lua/5.1/cjson.lua'
+        no file '/usr/share/lua/5.1/cjson/init.lua'
+        no file './cjson.so'
+        no file '/usr/local/lib/lua/5.1/cjson.so'
+        no file '/usr/lib/lua/5.1/cjson.so'
+        no file '/usr/local/lib/lua/5.1/loadall.so'
+stack traceback:
+        [C]: in function 'require'
+        /src/worker.lua:1: in main chunk
+        [C]: ?</code></pre>
+<p>Not able to find <code>cjson</code>? That seems odd, it’s right there:</p>
+<pre><code>/ # find / -type f -name cjson*
+/usr/local/openresty/lualib/cjson.so</code></pre>
+<p>Hrm, so how do we address this? I had seen a few of these, and I noticed it generally didn’t happen with openresty unless I was requesting a package which I had not yet installed (so that made sense). While I’m not familiar with package management in lua, this seems to be related to that being needed when running outside the pre-configured openresty env I have.</p>
+<p>Searching for “<em>lua lib path</em>”, I ended up on http://lua-users.org/wiki/PackagePath, which points out the existence of<code>package.path</code>:</p>
+<blockquote>
+<p>A schematic representation of that list is kept in the variable <code>package.path</code>. For the above list, that variable contains…</p>
+</blockquote>
+<p>Unfortunately, that wiki doesn’t include an example that updates or customizes <code>package.path</code>.</p>
+<p>http://stackoverflow.com/a/4126565 mentions:</p>
+<blockquote>
+<p>You can also change <code>package.path</code> in Lua before calling <code>require</code>.</p>
+</blockquote>
+<p>..so let’s explore <code>package.path</code> a little:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="ot">/</span> <span class="ot">#</span> <span class="ot">/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>bin<span class="ot">/</span>luajit
+LuaJIT <span class="dv">2.1.0</span><span class="ot">-</span>beta2 <span class="co">-- Copyright (C) 2005-2016 Mike Pall. http://luajit.org/</span>
+JIT: ON SSE2 SSE3 SSE4<span class="dv">.1</span> fold cse dce fwd dse narrow loop abc sink fuse
+<span class="ot">&gt;</span>
+<span class="ot">&gt;</span> <span class="fu">print</span><span class="ot">(</span>package<span class="ot">.</span>path<span class="ot">)</span>
+<span class="ot">./</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>luajit<span class="ot">-</span><span class="dv">2.1.0</span><span class="ot">-</span>beta2<span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">/</span>init<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">/</span>init<span class="ot">.</span>lua</code></pre></div>
+<p>This looks like a string, let’s see if we can add to it:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="ot">&gt;</span> foo <span class="ot">=</span> <span class="st">&quot;bar&quot;</span>
+<span class="ot">&gt;</span> foo <span class="er">+=</span> <span class="st">&quot;baz&quot;</span>
+stdin:<span class="dv">1</span>: <span class="st">'='</span> expected near <span class="st">'+'</span>
+<span class="ot">&gt;</span> foo <span class="ot">=</span> foo <span class="ot">+</span> <span class="st">&quot;baz&quot;</span>
+stdin:<span class="dv">1</span>: attempt to perform arithmetic on global <span class="st">'foo'</span> <span class="ot">(</span>a string value<span class="ot">)</span>
+stack traceback:
+        stdin:<span class="dv">1</span>: <span class="kw">in</span> main chunk
+        <span class="ot">[</span>C<span class="ot">]</span>: at <span class="dv">0x7f9ea8351bd0</span>
+<span class="ot">&gt;</span> foo <span class="ot">=</span> foo <span class="ot">..</span> <span class="st">&quot;baz&quot;</span>
+<span class="ot">&gt;</span> <span class="fu">print</span><span class="ot">(</span>foo<span class="ot">)</span>
+barbaz</code></pre></div>
+<p>OK, so use <code>..</code> for string concatenation (and <code>+</code> requires proper types)</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="ot">&gt;</span> package<span class="ot">.</span>path <span class="ot">=</span> package<span class="ot">.</span>path <span class="ot">..</span> <span class="st">&quot;;/usr/local/openresty/lualib/?.lua&quot;</span>
+<span class="ot">&gt;</span> <span class="fu">print</span><span class="ot">(</span>package<span class="ot">.</span>path<span class="ot">)</span>
+<span class="ot">./</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>luajit<span class="ot">-</span><span class="dv">2.1.0</span><span class="ot">-</span>beta2<span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">/</span>init<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>luajit<span class="ot">/</span>share<span class="ot">/</span>lua<span class="ot">/</span><span class="dv">5.1</span><span class="ot">/</span>?<span class="ot">/</span>init<span class="ot">.</span>lua<span class="ot">;/</span>usr<span class="ot">/</span><span class="kw">local</span><span class="ot">/</span>openresty<span class="ot">/</span>lualib<span class="ot">/</span>?<span class="ot">.</span>lua</code></pre></div>
+<p>Let’s see if that works in our script..</p>
+<pre><code>package.path= package.path .. &quot;;/usr/local/openresty/lualib/?.so&quot;
+local cjson = require &quot;cjson&quot;</code></pre>
+<p>(BTW, there are better ways to do this, see http://stackoverflow.com/a/31626271 for some options)</p>
+<p>hrm…</p>
+<pre><code># /usr/local/openresty/luajit/bin/luajit /src/worker.lua
+/usr/local/openresty/luajit/bin/luajit: error loading module 'cjson' from file '/usr/local/openresty/lualib/cjson.so':
+        /usr/local/openresty/lualib/cjson.so:1: unexpected symbol near 'char(127)'
+stack traceback:
+        [C]: at 0x7f7c2a441240
+        [C]: in function 'require'
+        /src/worker.lua:2: in main chunk
+        [C]: at 0x7f7c2a3f7bd0</code></pre>
+<p>At this point, I’d rather drop back to a “standard/basic lua env” that is not openresty. EG, the openresty env has specifics I don’t understand, and using lua outside of nginx isn’t working right. There is another way to solve this problem: build a basic lua env.</p>
+<h3 id="build-stand-alone-docker-image-with-lua">Build stand-alone docker image with lua</h3>
+<p>EG, for many of the previous exercises, we’ve used the <code>openresty:alpine</code> image, but I sometimes want to use lua straight up, without openresty, luajit, or the environment that openresty has setup (if only to confirm what I see is related to the openresty environment). The module/path issues noted above are also a motivation for this.</p>
+<p>Let’s setup a basic docker image with lua and luarocks, based on <code>alpine</code>. We’ll add <code>unzip</code>,<code>curl</code>, <code>gcc</code>, and <code>build-base</code> for fetching/building modules with <code>luarocks</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> alpine:latest
+
+<span class="kw">RUN</span>  apk add --update unzip curl build-base gcc lua5.1 lua5.1-dev luarocks5.1
+
+<span class="kw">VOLUME</span>  /src
+<span class="kw">WORKDIR</span> /src
+<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<p>Here is our <code>Makefile</code>, to make this a little easier:</p>
+<pre><code>build:
+        docker build --tag=lua --rm .
+
+run:
+        docker run -it --rm -v `pwd`:/src lua
+
+test:
+        # Run the following two commands:
+        #   make run
+        #   luarocks-5.1 install lua-cjson &amp;&amp; lua5.1 cjson-test.lua</code></pre>
+<p>We will mount the current working directory as <code>/src</code> in the image, and run our lua from there.</p>
+<p>Go to <code>examples/stand-alone-lua-image</code> and build it:</p>
+<pre><code>ᐅ cd examples/stand-alone-lua-image
+ᐅ make build
+docker build --tag=lua --rm .
+Sending build context to Docker daemon 4.096 kB
+Step 1 : FROM alpine:latest
+ ---&gt; fe3e188d9166
+Step 2 : RUN apk add --update unzip curl build-base gcc lua5.1 lua5.1-dev luarocks5.1
+ ---&gt; Running in 73bbb2c31559
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.5/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.5/community/x86_64/APKINDEX.tar.gz
+(1/29) Upgrading musl (1.1.15-r5 -&gt; 1.1.15-r6)
+(2/29) Installing binutils-libs (2.27-r0)
+(3/29) Installing binutils (2.27-r0)
+(4/29) Installing gmp (6.1.1-r0)
+(5/29) Installing isl (0.17.1-r0)
+(6/29) Installing libgomp (6.2.1-r1)
+(7/29) Installing libatomic (6.2.1-r1)
+(8/29) Installing pkgconf (1.0.2-r0)
+(9/29) Installing libgcc (6.2.1-r1)
+(10/29) Installing mpfr3 (3.1.5-r0)
+(11/29) Installing mpc1 (1.0.3-r0)
+(12/29) Installing libstdc++ (6.2.1-r1)
+(13/29) Installing gcc (6.2.1-r1)
+(14/29) Installing make (4.2.1-r0)
+(15/29) Installing musl-dev (1.1.15-r6)
+(16/29) Installing libc-dev (0.7-r1)
+(17/29) Installing fortify-headers (0.8-r0)
+(18/29) Installing g++ (6.2.1-r1)
+(19/29) Installing build-base (0.4-r1)
+(20/29) Installing ca-certificates (20161130-r0)
+(21/29) Installing libssh2 (1.7.0-r2)
+(22/29) Installing libcurl (7.52.1-r2)
+(23/29) Installing curl (7.52.1-r2)
+(24/29) Upgrading musl-utils (1.1.15-r5 -&gt; 1.1.15-r6)
+(25/29) Installing lua5.1-libs (5.1.5-r2)
+(26/29) Installing lua5.1 (5.1.5-r2)
+(27/29) Installing lua5.1-dev (5.1.5-r2)
+(28/29) Installing luarocks5.1 (2.4.2-r0)
+(29/29) Installing unzip (6.0-r2)
+Executing busybox-1.25.1-r0.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 161 MiB in 38 packages
+ ---&gt; 6790dd1671c6
+Removing intermediate container 73bbb2c31559
+Step 3 : VOLUME /src
+ ---&gt; Running in 24a551c29f23
+ ---&gt; 61dc8c8fe791
+Removing intermediate container 24a551c29f23
+Step 4 : WORKDIR /src
+ ---&gt; Running in f5d7b97948a7
+ ---&gt; 1ac18b1d38f1
+Removing intermediate container f5d7b97948a7
+Step 5 : ENTRYPOINT /bin/sh
+ ---&gt; Running in 1ceba58c9546
+ ---&gt; ef633a63546e
+Removing intermediate container 1ceba58c9546
+Successfully built ef633a63546e</code></pre>
+<p>Let’s test the image with our <code>cjson</code> situation above. We have a simple script - <code>cjson-test.lua</code> - it will exit 0 if it can import and use the cjson package:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="fu">print</span><span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>status <span class="ot">=</span> <span class="st">&quot;success!&quot;</span><span class="ot">}))</span></code></pre></div>
+<p>Let’s use the <code>lua</code> base image we created above, install the <code>lua-cjson</code> package, and then run our <code>cjson-test.lua</code> script:</p>
+<pre><code>ᐅ make run
+docker run -it --rm -v `pwd`:/src lua
+/src #
+/src # luarocks-5.1 install lua-cjson
+Installing https://luarocks.org/lua-cjson-2.1.0-1.src.rock
+gcc -O2 -fPIC -I/usr/include -c lua_cjson.c -o lua_cjson.o
+In file included from lua_cjson.c:47:0:
+fpconv.h:15:20: warning: inline function 'fpconv_init' declared but never defined
+ extern inline void fpconv_init();
+                    ^~~~~~~~~~~
+gcc -O2 -fPIC -I/usr/include -c strbuf.c -o strbuf.o
+gcc -O2 -fPIC -I/usr/include -c fpconv.c -o fpconv.o
+gcc -shared -o cjson.so -L/usr/lib lua_cjson.o strbuf.o fpconv.o
+No existing manifest. Attempting to rebuild...
+lua-cjson 2.1.0-1 is now installed in /usr/local (license: MIT)</code></pre>
+<p>Awesome, installed the package. Let’s run the test:</p>
+<pre><code>/src # lua5.1 cjson-test.lua
+{&quot;status&quot;:&quot;success!&quot;}</code></pre>
+<h3 id="ok-lets-get-back-to-it-heres-part-7-limit-http-methods1">OK, let’s get back to it, here’s <a href="2017-03-07-lua-and-openresty-part-7-limit-HTTP-methods.html">Part 7, Limit HTTP Methods</a></h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

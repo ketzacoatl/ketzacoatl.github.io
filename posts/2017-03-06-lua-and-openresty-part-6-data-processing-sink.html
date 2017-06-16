@@ -1,0 +1,546 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 6: Data Processing Sink</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 6: Data Processing Sink</h1>
+
+            <div class="info">
+    Posted on March  6, 2017
+    
+</div>
+
+<p>In <a href="2017-03-05-lua-and-openresty-part-5-redis.html">Part 5</a> of this series, we connected to and wrote some JSON data to a table in redis. This next post will demonstrate how to use write a simple (but fast and reliable) data processing sink with redis as our queue to store messages in before processing them.</p>
+<p>For this example, we will use the <a href="https://github.com/openresty/lua-resty-redis"><code>resty.redis</code> lua module</a>.</p>
+<p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/06-connect-to-redis">we are here</a>.</p>
+<h2 id="requirements-for-the-basic-data-processing-sink">Requirements for the basic data processing sink</h2>
+<ul>
+<li>Basic</li>
+<li>stand-alone (no openresty or nginx)</li>
+<li>connect to redis</li>
+<li>watch queue for new items</li>
+<li>for each item in the queue, do something with it (print it to stdout for now)</li>
+<li>if there’s no work, just sit idle</li>
+</ul>
+<p>This exercise is getting further into the unknown, and it might take a few steps before we have a working solution.</p>
+<h3 id="got-stuck-iterating-over-various-redis-client-libraries-to-find-one-that-would-work..">Got stuck iterating over various redis client libraries to find one that would work..</h3>
+<ul>
+<li><code>resty.redis</code> (which I used in exercise 6) is not available outside the openresty environment (and I’m not sure how to run lua in that env without nginx - or at least the <code>ngx</code> variable if not running in nginx).</li>
+<li><code>moon-redis</code> is a data modeling library</li>
+<li><code>redis-lua</code> appeared to have a dependency on <code>resty.redis</code> (at least I believe so)</li>
+<li><code>hiredis</code> appears to work, but is a pile of C that hasn’t been updated since 2014, so there’s that (but supposedly used in hi-volume production).</li>
+</ul>
+<h3 id="testing-hiredis">Testing <code>hiredis</code>…</h3>
+<p>Let’s test the connection, we’ll go to <code>examples/07-redis-data-sink/tests/</code> for this. Here is our code:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
+<span class="kw">local</span> client<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
+<span class="kw">if</span> <span class="kw">not</span> client <span class="kw">then</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
+  <span class="kw">return</span>
+<span class="kw">end</span></code></pre></div>
+<p>Here’s our <code>Makefile</code>:</p>
+<pre><code>build:
+        docker build --tag=ping-redis:7 --rm=true .
+
+run:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run -d --name ping-redis  --net host -p 127.0.0.1:8000:8000 ping-redis:7
+
+fail:
+        docker run -it --rm --entrypoint /usr/local/openresty/luajit/bin/luajit ping-redis:7 ping.lua
+
+dev:
+        docker run -it --rm -v `pwd`:/src ping-redis:7
+
+dev-redis:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run --rm -it --name ping-redis  --net host -v `pwd`:/src ping-redis:7
+
+clean:
+        docker stop redis       || true
+        docker stop ping-redis  || true
+        docker rm   redis       || true
+        docker rm   ping-redis  || true</code></pre>
+<p>Here’s our <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+<span class="kw">ADD</span> *.lua /src/
+<span class="kw">WORKDIR</span> /src/
+<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<p>Build that image:</p>
+<pre><code>ᐅ make build
+docker build --tag=ping-redis:7 --rm=true .
+Sending build context to Docker daemon 4.608 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+ ---&gt; Using cache
+ ---&gt; 9f523055586e
+Step 3 : ADD *.lua /src/
+ ---&gt; 2dd66d628a62
+Removing intermediate container d5a31e9154d6
+Step 4 : WORKDIR /src/
+ ---&gt; Running in 6a2c97caef1c
+ ---&gt; 4070a74cbaaa
+Removing intermediate container 6a2c97caef1c
+Step 5 : ENTRYPOINT /bin/sh
+ ---&gt; Running in 7b9f72e426e2
+ ---&gt; 101646a10ba3
+Removing intermediate container 7b9f72e426e2
+Successfully built 101646a10ba3</code></pre>
+<p>First test, with no redis available:</p>
+<pre><code>ᐅ make fail
+docker run -it --rm --entrypoint /usr/local/openresty/luajit/bin/luajit ping-redis:7 ping.lua
+failed to connect to redis..
+error: Connection refused
+code:  1</code></pre>
+<p>Test with redis available:</p>
+<pre><code>ᐅ make run
+docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+39980a15a0465e637019bb29c3a531398a3362cf35b9623a29c712e3d8f49208
+docker run -it --rm --net host --entrypoint /usr/local/openresty/luajit/bin/luajit ping-redis:7 ping.lua
+PONG:
+true</code></pre>
+<p>YAY!</p>
+<h3 id="lets-test-some-push-pop-rpoplpush..">Let’s test some push /// pop /// RPOPLPUSH..</h3>
+<p>For this test, we’ll write another stand-alone script that simulates a few steps in the general workflow the worker goes through when processing a single item on the queue. This will do the following:</p>
+<ul>
+<li>connect to redis</li>
+<li>left push a few values to a list (3 or 4)</li>
+<li>use <code>RPOPLPUSH</code> to pop one value from the <code>enqueued</code> list, and push that value to a <code>processing</code> list</li>
+<li>do something with that value (print it)</li>
+<li>use <code>LREM</code> to remove the item from the processing list.</li>
+<li>this should work fine for basic situations, but would need more thorough testing to guard against race conditions across multiple workers (though it ought to be ok if the keys are unique)</li>
+</ul>
+<p>The push/pop workflow looks like:</p>
+<pre><code> +------+
+ | JSON |
+ +--+---+
+    |
+    |
+    V
++--------+
+|producer|
++---+----+
+    |
+    |
+    |  LPUSH    +---+---+---+---+    RPOPLPUSH    +---+---+---+---+
+    +---------&gt; | d | c | b | a +-&gt;--&gt;---+---&gt;---&gt;+ x | . | . |   |
+                +---+---+---+---+        |        +---+---+---+---+
+                                         |          |
+                                         V          V LREM when done
+                                     +---+----+
+                                     |Consumer|
+                                     +--------+</code></pre>
+<p>Relevant docs for these redis operations:</p>
+<ul>
+<li><a href="https://redis.io/commands/rpoplpush"><code>RPOPLPUSH</code></a></li>
+<li><a href="https://redis.io/commands/lrem"><code>LREM</code></a></li>
+</ul>
+<p>Note that it’s also worth understanding the difference between <code>RPOPLPUSH</code> and <code>BRPOPLPUSH</code> (the blocking variant).</p>
+<p>The code for our test is simple but a tad verbose:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
+<span class="co">-- return redis client, or fail and exit</span>
+<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
+  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
+  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
+    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
+  <span class="kw">else</span>
+    <span class="kw">return</span> rc
+  <span class="kw">end</span>
+<span class="kw">end</span>
+<span class="co">-- send a PING to redis and print True/False for PONG as result</span>
+ping_pong <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;PONG:&quot;</span><span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span>client:command<span class="ot">(</span><span class="st">&quot;PING&quot;</span><span class="ot">)</span> <span class="ot">==</span> hiredis<span class="ot">.</span>status<span class="ot">.</span>PONG<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- push a few test keys simulating a writing producer</span>
+push_keys <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">)</span>
+  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;a&quot;</span><span class="ot">)</span>
+  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;b&quot;</span><span class="ot">)</span>
+  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;c&quot;</span><span class="ot">)</span>
+  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;d&quot;</span><span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- return the lua table that is the redis list, in full</span>
+get_list <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">,</span> list<span class="ot">)</span>
+  <span class="kw">return</span> client:command<span class="ot">(</span><span class="st">&quot;LRANGE&quot;</span><span class="ot">,</span> list<span class="ot">,</span> <span class="dv">0</span><span class="ot">,</span> <span class="ot">-</span><span class="dv">1</span><span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- for the lua table t, print the key/value pairs (one level)</span>
+print_table <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
+  <span class="kw">for</span> k<span class="ot">,</span>v <span class="kw">in</span> <span class="fu">pairs</span><span class="ot">(</span>t<span class="ot">)</span> <span class="kw">do</span>
+    <span class="fu">print</span><span class="ot">(</span>k<span class="ot">,</span> v<span class="ot">)</span>
+  <span class="kw">end</span>
+<span class="kw">end</span>
+<span class="co">-- wrap redis RPOPLPUSH</span>
+rpoplpush <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- wrap redis LREM</span>
+drop <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>tbl<span class="ot">,</span> key<span class="ot">)</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> tbl<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> key<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">--</span>
+<span class="co">-- MAIN</span>
+rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="ot">)</span>
+ping_pong<span class="ot">(</span>rc<span class="ot">)</span>
+<span class="co">-- push some keys to the q</span>
+push_keys<span class="ot">(</span>rc<span class="ot">)</span>
+<span class="co">-- print out those keys</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;LRANGE enqueued:&quot;</span><span class="ot">)</span>
+q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
+print_table<span class="ot">(</span>q<span class="ot">)</span>
+<span class="co">-- RPOPLPUSH one key over to processing</span>
+pop <span class="ot">=</span> rpoplpush<span class="ot">(</span><span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;pop the queue, now processing: &quot;</span> <span class="ot">..</span> pop<span class="ot">)</span>
+<span class="co">-- retrieve and print the two lists as they are now..</span>
+q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;queue is now:&quot;</span><span class="ot">)</span>
+print_table<span class="ot">(</span>q<span class="ot">)</span>
+<span class="co">--</span>
+p <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;processing is now:&quot;</span><span class="ot">)</span>
+print_table<span class="ot">(</span>p<span class="ot">)</span>
+<span class="co">-- ok, we're done with the key, let's drop it</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;done with:&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span>pop<span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;drop from processing..&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span>drop<span class="ot">(</span><span class="st">&quot;processing&quot;</span><span class="ot">,</span> pop<span class="ot">))</span>
+<span class="co">-- retrieve and print the two lists as they are now..</span>
+q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;queue:&quot;</span><span class="ot">)</span>
+print_table<span class="ot">(</span>q<span class="ot">)</span>
+<span class="co">--</span>
+p <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
+<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;processing:&quot;</span><span class="ot">)</span>
+print_table<span class="ot">(</span>p<span class="ot">)</span>
+<span class="co">-- goodbye redis</span>
+rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<p>This is our first time defining functions, they are in the form:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">foo <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>args<span class="ot">)</span>
+  stmt
+<span class="kw">end</span></code></pre></div>
+<p>Here is our <code>Makefile</code>:</p>
+<pre><code>build:
+        docker build --tag=push-pop:7 --rm=true .
+
+run:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run -it --rm --net host --entrypoint /usr/local/openresty/luajit/bin/luajit push-pop:7 queue-test.lua
+
+dev:
+        docker run -it --rm -v `pwd`:/src push-pop:7
+
+dev-redis:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run --rm -it --name push-pop  --net host -v `pwd`:/src push-pop:7
+
+clean:
+        docker stop redis     || true
+        docker stop push-pop  || true
+        docker rm   redis     || true
+        docker rm   push-pop  || true</code></pre>
+<p>Here is our <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+<span class="kw">ADD</span> *.lua /src/
+<span class="kw">WORKDIR</span> /src/
+<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<p>Let’s build the image:</p>
+<pre><code>ᐅ make build
+docker build --tag=push-pop:7 --rm=true .
+Sending build context to Docker daemon 18.94 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+ ---&gt; Using cache
+ ---&gt; 9f523055586e
+Step 3 : ADD *.lua /src/
+ ---&gt; ffd368d4359d
+Removing intermediate container cd9f8b513598
+Step 4 : WORKDIR /src/
+ ---&gt; Running in bc6b44a78bcc
+ ---&gt; df60616db41a
+Removing intermediate container bc6b44a78bcc
+Step 5 : ENTRYPOINT /bin/sh
+ ---&gt; Running in 5eca9952a6c1
+ ---&gt; f57567ee339a
+Removing intermediate container 5eca9952a6c1
+Successfully built f57567ee339a</code></pre>
+<p>Run the quick tests:</p>
+<pre><code>ᐅ make run
+docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+f898eff2d7ff61368757992277e58e427d70504eb2f4f128e324bcc8d4255c43
+docker run -it --rm --net host --entrypoint /usr/local/openresty/luajit/bin/luajit push-pop:7 queue-test.lua
+PONG:
+true
+LRANGE enqueued:
+1       d
+2       c
+3       b
+4       a
+pop the queue, now processing: a
+queue is now:
+1       d
+2       c
+3       b
+processing is now:
+1       a
+done with:
+a
+drop from processing..
+1
+queue:
+1       d
+2       c
+3       b
+processing:</code></pre>
+<h3 id="ok-lets-get-more-serious..">OK, Let’s get more serious..</h3>
+<p>We’ll need three pieces to this puzzle:</p>
+<ul>
+<li>redis - docker image, easy</li>
+<li>webapp (nginx/openresty) - accepts POST and writes to redis</li>
+<li>worker (stand-alone Lua script) - attempts to pop from queue and process data</li>
+</ul>
+<p>The worker’s logic would look like:</p>
+<pre><code>while true
+  item = RPOPLPUSH(q, p)
+  process(item)
+  donedrop(item)
+  sleep(delay)</code></pre>
+<p>To run tests on this stack, we will also want a 4th component, a <code>producer.lua</code> that fills redis with some keys for the worker to process.</p>
+<p>Having run the simpler tests in this exercise, we can now complete the primary goals for this exercise:</p>
+<ul>
+<li>connect to redis</li>
+<li>watch the queue</li>
+<li>process an item when one is available (print it)</li>
+<li>site idle while there are no items on the queue</li>
+<li>It should be easy to load new values onto the queue</li>
+</ul>
+<p>Let’s start with the <code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+<span class="kw">ADD</span> *.lua /src/
+<span class="kw">WORKDIR</span> /src/
+<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<p>The <code>Makefile</code>:</p>
+<pre><code>build:
+        docker build --tag=sink:7 --rm=true .
+
+run:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run -d --name sink  --net host --entrypoint /usr/local/openresty/luajit/bin/luajit sink:7 worker.lua
+
+dev:
+        docker run -it --rm --entrypoint /bin/sh -v `pwd`:/src sink:7
+
+dev-redis:
+        docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+        docker run --rm -it --name sink --net host --entrypoint /bin/sh -v `pwd`:/src sink:7
+
+clean:
+        docker stop redis || true
+        docker stop sink  || true
+        docker rm   redis || true
+        docker rm   sink  || true
+
+logs:
+        docker logs -f sink
+
+cat-posts:
+        docker exec -it redis redis-cli -c LRANGE enqueued 0 -1
+
+load-redis:
+        docker exec sink /usr/local/openresty/luajit/bin/luajit /src/producer.lua
+
+app-shell:
+        docker exec -it sink  /bin/sh
+
+redis-shell:
+        docker exec -it redis redis-cli</code></pre>
+<p>Here is our <code>producer.lua</code>:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="kw">local</span> redis <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
+<span class="co">-- names for our lists in redis</span>
+<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
+<span class="co">-- return redis client, or fail and exit</span>
+<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
+  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
+  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
+    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
+  <span class="kw">else</span>
+    <span class="kw">return</span> rc
+  <span class="kw">end</span>
+<span class="kw">end</span>
+<span class="co">-- push a key to the queue</span>
+enqueue <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>key<span class="ot">)</span>
+  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> key<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">--</span>
+<span class="co">-- MAIN</span>
+rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
+<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
+<span class="kw">for</span> l<span class="ot">=</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">100000</span>
+<span class="kw">do</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="ot">..</span> l<span class="ot">)</span>
+  date_fmt <span class="ot">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span>
+  enqueue<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>timestamp <span class="ot">=</span> <span class="fu">os.date</span><span class="ot">(</span>date_fmt<span class="ot">),</span> msg <span class="ot">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="ot">..</span> l<span class="ot">}))</span>
+  l <span class="ot">=</span> l <span class="ot">+</span> <span class="dv">1</span>
+<span class="kw">end</span></code></pre></div>
+<p>..and the <code>worker.lua</code>:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="co">-- install lua-hiredis</span>
+<span class="kw">local</span> redis <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
+<span class="co">-- names for our lists in redis</span>
+<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
+<span class="kw">local</span> p     <span class="ot">=</span> <span class="st">&quot;processing&quot;</span>
+<span class="kw">local</span> delay <span class="ot">=</span> <span class="dv">0.001</span>
+<span class="co">-- return redis client, or fail and exit</span>
+<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
+  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
+  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
+    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
+  <span class="kw">else</span>
+    <span class="kw">return</span> rc
+  <span class="kw">end</span>
+<span class="kw">end</span>
+<span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span>
+get_work <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- &quot;do&quot; the work</span>
+process <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span>i<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- work is done, drop it from the processing table</span>
+dondrop <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> p<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> i<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- pause for a moment..</span>
+<span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span>
+sleep <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
+  <span class="fu">os.execute</span><span class="ot">(</span><span class="st">&quot;sleep &quot;</span> <span class="ot">..</span> <span class="fu">tonumber</span><span class="ot">(</span>t<span class="ot">))</span>
+<span class="kw">end</span>
+<span class="co">--</span>
+<span class="co">-- MAIN</span>
+rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
+<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
+<span class="co">-- loop doing work until you can't</span>
+<span class="kw">while</span> <span class="kw">true</span> <span class="kw">do</span>
+  item<span class="ot">,</span> err<span class="ot">,</span> code <span class="ot">=</span> get_work<span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
+  <span class="kw">if</span> item<span class="ot">.</span>name <span class="ot">==</span> <span class="st">&quot;NIL&quot;</span> <span class="kw">then</span>
+    <span class="co">-- pass</span>
+  <span class="kw">else</span>
+    <span class="co">--print(&quot;got item!&quot;)</span>
+    process<span class="ot">(</span>item<span class="ot">)</span>
+    dondrop<span class="ot">(</span>item<span class="ot">)</span>
+    sleep<span class="ot">(</span>delay<span class="ot">)</span>
+  <span class="kw">end</span>
+<span class="kw">end</span>
+rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<p>Let’s build the docker image:</p>
+<pre><code>ᐅ make build
+docker build --tag=sink:7 --rm=true .
+Sending build context to Docker daemon 69.12 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : ENV REDIS_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; de5f965dde03
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+ ---&gt; Using cache
+ ---&gt; 7c775cdb7262
+Step 4 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+ ---&gt; Using cache
+ ---&gt; ae1368fbc83c
+Step 5 : ADD *.lua /src/
+ ---&gt; df004e1f873f
+Removing intermediate container f99ad0182f1e
+Step 6 : WORKDIR /src/
+ ---&gt; Running in c83514aa60cf
+ ---&gt; 532d74acb351
+Removing intermediate container c83514aa60cf
+Step 7 : ENTRYPOINT /bin/sh
+ ---&gt; Running in 779030fb4864
+ ---&gt; f487b5262d67
+Removing intermediate container 779030fb4864
+Successfully built f487b5262d67</code></pre>
+<p>Run redis and the worker:</p>
+<pre><code>ᐅ make run
+docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+57f9820ed7091761dddfd2547391c6509e4c065d36ef0f2c989ff00fdc4e8950
+docker run -d --name sink  --net host --entrypoint /usr/local/openresty/luajit/bin/luajit sink:7 worker.lua
+2bf77a4d780c516d6685c5c1ef6c8e5a1b7be9ec07ae7c1d6a8618bd0cccde68</code></pre>
+<p>We should see them with <code>docker ps</code>:</p>
+<pre><code>ᐅ docker ps
+CONTAINER ID  IMAGE        COMMAND                CREATED        STATUS   PORTS NAMES
+2bf77a4d780c  sink:7       &quot;/usr/local/openresty&quot; 32 seconds ago Up 32 seconds  sink
+57f9820ed709  redis:alpine &quot;docker-entrypoint.sh&quot; 32 seconds ago Up 32 seconds  redis</code></pre>
+<p>In one shell/terminal, watch the logs..</p>
+<pre><code>ᐅ make logs
+docker logs -f sink</code></pre>
+<p>Load up redis with a bunch of data (100k keys):</p>
+<pre><code>ᐅ make load-redis | tail
+enqueue: 99991
+enqueue: 99992
+enqueue: 99993
+enqueue: 99994
+enqueue: 99995
+enqueue: 99996
+enqueue: 99997
+enqueue: 99998
+enqueue: 99999
+enqueue: 100000</code></pre>
+<p>As soon as that starts, you should see log activity from the worker, something like:</p>
+<pre><code>...
+{&quot;timestamp&quot;:&quot;03-05-2017--03-06-08&quot;,&quot;msg&quot;:&quot;hi! this is 99995&quot;}
+{&quot;timestamp&quot;:&quot;03-05-2017--03-06-08&quot;,&quot;msg&quot;:&quot;hi! this is 99996&quot;}
+{&quot;timestamp&quot;:&quot;03-05-2017--03-06-08&quot;,&quot;msg&quot;:&quot;hi! this is 99997&quot;}
+{&quot;timestamp&quot;:&quot;03-05-2017--03-06-08&quot;,&quot;msg&quot;:&quot;hi! this is 99998&quot;}
+{&quot;timestamp&quot;:&quot;03-05-2017--03-06-08&quot;,&quot;msg&quot;:&quot;hi! this is 99999&quot;}</code></pre>
+<h3 id="continue-on-to-another-interlude-exploring-package.path3">Continue on to (another) interlude, <a href="2017-03-07-lua-and-openresty-interlude-exploring-luas-package-path.html">Exploring <code>package.path</code></a></h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

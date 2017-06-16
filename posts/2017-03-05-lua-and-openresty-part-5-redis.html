@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 5: Redis</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 5: Redis</h1>
+
+            <div class="info">
+    Posted on March  5, 2017
+    
+</div>
+
+<p>In <a href="2017-03-04-lua-and-openresty-part-4-using-envvars.html">Part 4</a> of this series, we used envvars to tell our Lua webapp how to connect to Postgres. This next post will demonstrate how to interact with redis (connect/read/write).</p>
+<p>For this example, we will use the <a href="https://github.com/openresty/lua-resty-redis"><code>resty.redis</code> lua module</a>.</p>
+<p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/06-connect-to-redis">we are here</a>.</p>
+<h3 id="connecting-and-writing-to-redis-with-lua">Connecting and Writing to Redis with Lua</h3>
+<p>To demonstrate the basics, this example will:</p>
+<ul>
+<li>connect to redis</li>
+<li>fail with an error message if lua is unable to connect to redis</li>
+<li>grab/process POST data</li>
+<li>encode the POST data as JSON and write it to the <code>queue</code> table in redis with <code>lpush</code></li>
+<li>clear the connection</li>
+<li>respond to the user with a JSON message that confirms what was saved to redis</li>
+</ul>
+<p>We should then be able to send in some test messages and then cat the keys on the <code>queue</code> table.</p>
+<pre class="nginx"><code>worker_processes  1;
+env REDIS_HOST;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            content_by_lua '
+                local cjson = require &quot;cjson&quot;
+                local redis = require &quot;resty.redis&quot;
+                local r     = redis:new()
+                local ok, err = r:connect(os.getenv(&quot;REDIS_HOST&quot;), 6379)
+                if not ok then
+                  ngx.say(cjson.encode({status = &quot;error&quot;, msg =  &quot;failed to connect: &quot; .. err}))
+                  return
+                end
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                assert(r:lpush(&quot;queue&quot;, cjson.encode(post)))
+                r = nil
+                ngx.status  = ngx.HTTP_OK
+                ngx.say(cjson.encode({status = &quot;saved&quot;, msg=post}))
+                return ngx.exit(ngx.HTTP_OK)
+            ';
+        }
+    }
+}</code></pre>
+<p>The lua application will now use the <code>REDIS_HOST</code> envvar when connecting to the redis host, so we need to include that in our <code>Dockerfile</code>. We are using the <code>resty.redis</code> lua module, so we also need to install that with <code>luarocks</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+<span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<h3 id="makefile">Makefile</h3>
+<p>We won’t use Postgres for this example, but our <code>Makefile</code> is similar to the last few examples:</p>
+<pre><code>build:
+	docker build --tag=app:6    --rm=true .
+
+# add &quot;-v `pwd`:/usr/local/openresty/nginx/conf/&quot; to the app for local dev
+run:
+	docker run -d --name redis  --net host -p 127.0.0.1:6379:6379 redis:alpine
+	docker run -d --name app    --net host -p 127.0.0.1:8000:8000 app:6
+
+clean:
+	docker stop redis  || true
+	docker stop app    || true
+	docker rm   redis  || true
+	docker rm   app    || true
+
+reload:
+	docker exec -it app   /usr/local/openresty/nginx/sbin/nginx -s reload
+
+logs:
+	docker exec -it app   tail -f /usr/local/openresty/nginx/error.log
+
+cat-posts:
+	docker exec -it redis redis-cli -c LRANGE queue 0 -1
+
+app-shell:
+	docker exec -it app   /bin/sh
+
+redis-shell:
+	docker exec -it redis redis-cli
+
+test:
+	curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/</code></pre>
+<p>This gives us a number of make targets which are very helpful when developing and debugging unexpected issues.</p>
+<h3 id="build-test-run">Build / Test / Run</h3>
+<p>Use <code>make build</code> to create the Docker image:</p>
+<pre><code>ᐅ make build
+docker build --tag=app:6    --rm=true ./
+Sending build context to Docker daemon  16.9 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : ENV REDIS_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; 43fc68284411
+Step 4 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+ ---&gt; Using cache
+ ---&gt; e17bae3848b8
+Step 5 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; Using cache
+ ---&gt; 306d00c38cee
+Step 6 : RUN echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' &gt; /etc/nsswitch.conf
+ ---&gt; Using cache
+ ---&gt; 9ae83b74b72a
+Successfully built 9ae83b74b72a</code></pre>
+<p>Run:</p>
+<pre><code>ᐅ make run
+docker run -d --name redis  --net host -p 127.0.0.1:6379:6379 redis:6
+399c0c7f815d0e4ab7660b7e2852fb64f6f82ec42586c232a70bc11f5b577d2c
+docker run -d --name app    --net host -p 127.0.0.1:8000:8000 app:6
+39e71e2333452730960e60c09afe4a6ad1bc8f8a4d625f49c2f3859ad1c0634f</code></pre>
+<p>Test:</p>
+<pre><code>ᐅ make test
+curl -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;password&quot;:&quot;xyz&quot;,&quot;username&quot;:&quot;xyz&quot;}}</code></pre>
+<p>I repeated that test 4 times, let’s see what is in redis:</p>
+<pre><code>ᐅ make cat-posts
+docker exec -it redis redis-cli -c LRANGE queue 0 -1
+1) &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;}&quot;
+2) &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;}&quot;
+3) &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;}&quot;
+4) &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;}&quot;</code></pre>
+<p>Yay!</p>
+<p>Then teardown the running containers with <code>make clean</code>.</p>
+<hr />
+<p>Time Tracking: since last check: 1 hour; total: 7 hours</p>
+<hr />
+<h3 id="continue-on-to-an-interlude-issues-with-luarocks-and-alpine3">Continue on to an <a href="2017-03-06-lua-and-openresty-interlude-issues-with-luarocks-and-alpine.html">Interlude, Issues with luarocks and Alpine</a></h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

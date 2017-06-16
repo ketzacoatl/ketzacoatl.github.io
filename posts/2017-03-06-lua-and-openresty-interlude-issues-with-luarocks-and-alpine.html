@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, an Interlude, Issues with luarocks and Alpine</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, an Interlude, Issues with luarocks and Alpine</h1>
+
+            <div class="info">
+    Posted on March  6, 2017
+    
+</div>
+
+<p>For a few exercises in this series, I have gone to installing the <code>lua5.1</code> and <code>luarocks-5.1</code> packages from Alpine’s <code>apk</code>, but installing a lua module/package with luarocks would fail:</p>
+<pre><code>/ # luarocks-5.1 search cjson
+Warning: Failed searching manifest: Failed fetching manifest for https://luarocks.org - Failed downloading https://luarocks.org/manifest - /root/.cache/luarocks/https___luar
+ocks.org/manifest
+Warning: Failed searching manifest: Failed fetching manifest for https://raw.githubusercontent.com/rocks-moonscript-org/moonrocks-mirror/master/ - Failed downloading https:/
+/raw.githubusercontent.com/rocks-moonscript-org/moonrocks-mirror/master/manifest - /root/.cache/luarocks/https___raw.githubusercontent.com_rocks-moonscript-org_moonrocks-mir
+ror_master_/manifest
+Warning: Failed searching manifest: Failed fetching manifest for http://luafr.org/moonrocks/ - Failed downloading http://luafr.org/moonrocks/manifest - /root/.cache/luarocks
+/http___luafr.org_moonrocks_/manifest
+Warning: Failed searching manifest: Failed fetching manifest for http://luarocks.logiceditor.com/rocks - Failed downloading http://luarocks.logiceditor.com/rocks/manifest -
+/root/.cache/luarocks/http___luarocks.logiceditor.com_rocks/manifest</code></pre>
+<p>“failed to fetch the manifest”.. hrm..</p>
+<p>Having used Alpine a bit, this type of issue is usually “a package is missing” and resolved by adding some package and/or running some update process.</p>
+<p>I first suspect SSL and <code>ca-certificates</code>, but that wasn’t successful:</p>
+<pre><code>/ # apk add --update ca-certificates
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.5/main/x86_64/APKINDEX.tar.gz
+fetch http://dl-cdn.alpinelinux.org/alpine/v3.5/community/x86_64/APKINDEX.tar.gz
+(1/1) Installing ca-certificates (20161130-r0)
+Executing busybox-1.25.1-r0.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 6 MiB in 17 packages
+/ # update-ca-certificates
+WARNING: ca-certificates.crt does not contain exactly one certificate or CRL: skipping
+/ # luarocks-5.1 install cjson
+Warning: Failed searching manifest: Failed fetching manifest for https://luarocks.org - Failed downloading https://luarocks.org/manifest - /root/.cache/luarocks/https___luar
+ocks.org/manifest
+...</code></pre>
+<p>I eventually found <a href="https://github.com/openresty/docker-openresty/issues/23#issuecomment-266235356">this comment</a>, which mentions:</p>
+<blockquote>
+<p>Turns out that luarocks needs <code>unzip</code> and <code>curl</code> packages. Please add them to <code>alpine-fat</code> image, so we can have working <code>luarocks</code> by default.</p>
+</blockquote>
+<p>OK, so that should be easy:</p>
+<pre><code>/ # apk add unzip curl
+(1/5) Installing ca-certificates (20161130-r0)
+(2/5) Installing libssh2 (1.7.0-r2)
+(3/5) Installing libcurl (7.52.1-r2)
+(4/5) Installing curl (7.52.1-r2)
+(5/5) Installing unzip (6.0-r2)
+Executing busybox-1.25.1-r0.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 7 MiB in 21 packages
+/ # luarocks-5.1 search cjson
+
+Search results:
+===============
+
+
+Rockspecs and source rocks:
+---------------------------
+
+lua-cjson
+   2.1.0-1 (rockspec) - https://luarocks.org
+...</code></pre>
+<p>Yay!</p>
+<p>I eventually found <a href="https://github.com/openresty/docker-openresty/issues/23#issuecomment-266235356">this comment</a>, which mentions:</p>
+<blockquote>
+<p>Turns out that luarocks needs <code>unzip</code> and <code>curl</code> packages. Please add them to <code>alpine-fat</code> image, so we can have working <code>luarocks</code> by default.</p>
+</blockquote>
+<p>OK, so that should be easy:</p>
+<pre><code>/ # apk add unzip curl
+(1/5) Installing ca-certificates (20161130-r0)
+(2/5) Installing libssh2 (1.7.0-r2)
+(3/5) Installing libcurl (7.52.1-r2)
+(4/5) Installing curl (7.52.1-r2)
+(5/5) Installing unzip (6.0-r2)
+Executing busybox-1.25.1-r0.trigger
+Executing ca-certificates-20161130-r0.trigger
+OK: 7 MiB in 21 packages
+/ # luarocks-5.1 search cjson
+
+Search results:
+===============
+
+
+Rockspecs and source rocks:
+---------------------------
+
+lua-cjson
+   2.1.0-1 (rockspec) - https://luarocks.org
+...</code></pre>
+<p>Yay!</p>
+<h3 id="ok-lets-get-back-to-it-heres-part-6-data-processing-sink1">OK, let’s get back to it, here’s <a href="2017-03-06-lua-and-openresty-part-6-data-processing-sink.html">Part 6, Data Processing Sink</a></h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
