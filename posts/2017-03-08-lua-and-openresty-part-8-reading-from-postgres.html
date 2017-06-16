@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 8: Bulk Retrieval from Postgres</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 8: Bulk Retrieval from Postgres</h1>
+
+            <div class="info">
+    Posted on March  8, 2017
+    
+</div>
+
+<p>In <a href="2017-03-07-lua-and-openresty-part-7-limit-HTTP-methods.html">Part 7</a> of this series, we explored restricting access by HTTP method in lua.</p>
+<p>In this post, we will use lua to read from the database. It’s one of the last of the basic capabilities we need to know how to do for our demo.</p>
+<p>If you are following along in the code, <a href="2017-03-09-lua-and-openresty-part-9-http-clients.html">we are here</a>.</p>
+<h3 id="get-to-retrieve-json-msg-from-postgres">GET to retrieve JSON msg from postgres</h3>
+<p>For a <code>GET</code> to <code>/list</code>, the app should retrieve the top 100 entries in the <code>posts</code> table in postgres.</p>
+<p>The web app is pretty simple:</p>
+<ul>
+<li>if GET:
+<ul>
+<li>connect to the database</li>
+<li>run a query to select the TOP entries</li>
+<li>return the results as JSON in the response</li>
+</ul></li>
+<li>else, access denied</li>
+</ul>
+<p>Here it is:</p>
+<pre class="nginx"><code>worker_processes  1;
+env DB_HOST;
+env DB_USER;
+env DB_PASS;
+env DB_NAME;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location /list {
+            content_by_lua '
+              local cjson = require &quot;cjson&quot;
+              local http_method = ngx.var.request_method
+              if http_method == &quot;GET&quot; then
+                local pgmoon = require &quot;pgmoon&quot;
+                local pg = pgmoon.new({
+                  host     = os.getenv(&quot;DB_HOST&quot;),
+                  port     = &quot;5432&quot;,
+                  user     = os.getenv(&quot;DB_USER&quot;),
+                  password = os.getenv(&quot;DB_PASS&quot;),
+                  database = os.getenv(&quot;DB_NAME&quot;)
+                })
+                assert(pg:connect())
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                top = pg:query(&quot;SELECT data FROM posts ORDER BY id DESC LIMIT 100;&quot;)
+                pg:keepalive()
+                pg = nil
+                ngx.status = ngx.HTTP_OK
+                ngx.say(cjson.encode({ msg = top }))
+                return ngx.exit(ngx.HTTP_OK)
+              else
+                ngx.status = ngx.HTTP_NOT_ALLOWED
+                ngx.say(cjson.encode({method = http_method , status = &quot;denied&quot;}))
+                return ngx.exit(ngx.HTTP_NOT_ALLOWED)
+              end
+            ';
+        }
+    }
+}</code></pre>
+<h3 id="the-producer.lua">The <code>producer.lua</code></h3>
+<p>If we are going to retrieve a bunch of messages from the database, we first need to populate it with some data. We have <code>producer.lua</code> to do that:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="kw">local</span> pgmoon <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span>
+<span class="kw">local</span> pg <span class="ot">=</span> pgmoon<span class="ot">.</span>new<span class="ot">({</span>
+  host     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="ot">),</span>
+  port     <span class="ot">=</span> <span class="st">&quot;5432&quot;</span><span class="ot">,</span>
+  user     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_USER&quot;</span><span class="ot">),</span>
+  password <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="ot">),</span>
+  database <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="ot">)</span>
+<span class="ot">})</span>
+<span class="fu">assert</span><span class="ot">(</span>pg:<span class="fu">connect</span><span class="ot">())</span>
+<span class="kw">local</span> encode_json <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="ot">).</span>encode_json
+
+<span class="fu">write</span> <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>data<span class="ot">)</span>
+  <span class="fu">assert</span><span class="ot">(</span>pg:query<span class="ot">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="ot">..</span> encode_json<span class="ot">(</span>data<span class="ot">)</span> <span class="ot">..</span> <span class="st">&quot;);&quot;</span><span class="ot">))</span>
+  <span class="fu">print</span><span class="ot">(</span>data<span class="ot">)</span>
+<span class="kw">end</span>
+
+<span class="co">--</span>
+<span class="co">-- MAIN</span>
+<span class="kw">for</span> l<span class="ot">=</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">500</span>
+<span class="kw">do</span>
+  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="ot">..</span> l<span class="ot">)</span>
+  date_fmt <span class="ot">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span>
+  <span class="fu">write</span><span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>timestamp <span class="ot">=</span> <span class="fu">os.date</span><span class="ot">(</span>date_fmt<span class="ot">),</span> msg <span class="ot">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="ot">..</span> l<span class="ot">}))</span>
+  l <span class="ot">=</span> l <span class="ot">+</span> <span class="dv">1</span>
+<span class="kw">end</span></code></pre></div>
+<h3 id="the-makefile">The <code>Makefile</code></h3>
+<pre><code>build:
+        docker build --tag=db:9  --rm=true ./db
+        docker build --tag=app:9 --rm=true ./app
+
+run:
+        docker run -d --name db  --net host -p 127.0.0.1:5342:5432 db:9
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:9
+
+dev:
+        docker run -d --name db  --net host -p 127.0.0.1:5342:5432 db:9
+        docker run -d --name app --net host -p 127.0.0.1:8000:8000 -v `pwd`/app/producer.lua:/src/producer.lua -v `pwd`/app/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf app:9
+
+shell:
+        docker exec -it app /bin/sh
+
+clean:
+        docker stop db  || true
+        docker stop app || true
+        docker rm   db  || true
+        docker rm   app || true
+
+reload:
+        docker exec -it app /usr/local/openresty/nginx/sbin/nginx -s reload
+
+logs:
+        docker exec -it app tail -f /usr/local/openresty/nginx/error.log
+
+cat-posts:
+        docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+
+load-pg:
+        docker exec app /usr/local/openresty/luajit/bin/luajit /src/producer.lua
+
+test:
+        curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/list
+        curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list</code></pre>
+<h3 id="app-dockerfile">App <code>Dockerfile</code></h3>
+<p>This has both the lua web app as well as <code>producer.lua</code> stand-alone script, so either “role” can be run from the same image (for simplicity of demonstration):</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+<span class="kw">ADD</span> producer.lua /src/
+<span class="kw">ENV</span> DB_HOST 127.0.0.1
+<span class="kw">ENV</span> DB_USER postgres
+<span class="kw">ENV</span> DB_PASS password
+<span class="kw">ENV</span> DB_NAME lua-app</code></pre></div>
+<h3 id="the-database">The Database</h3>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
+<span class="kw">ENV</span>  POSTGRES_PASSWORD password
+<span class="kw">ENV</span>  POSTGRES_DB       lua-app
+<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</code></pre></div>
+<p>…and the db’s <code>init.sql</code>:</p>
+<pre><code>CREATE TABLE posts (ID SERIAL PRIMARY KEY, data JSONB);</code></pre>
+<h3 id="build-the-docker-images">Build the Docker images</h3>
+<pre><code>ᐅ make build
+docker build --tag=db:9  --rm=true ./db
+Sending build context to Docker daemon 3.072 kB
+Step 1 : FROM postgres:alpine
+ ---&gt; f0476a087b97
+Step 2 : ENV POSTGRES_PASSWORD password
+ ---&gt; Using cache
+ ---&gt; 30d766415bf6
+Step 3 : ENV POSTGRES_DB lua-app
+ ---&gt; Using cache
+ ---&gt; 449a34987810
+Step 4 : ADD init.sql /docker-entrypoint-initdb.d/
+ ---&gt; Using cache
+ ---&gt; 7ac365dda47a
+Successfully built 7ac365dda47a
+docker build --tag=app:9 --rm=true ./app
+Sending build context to Docker daemon 18.43 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install pgmoon
+ ---&gt; Using cache
+ ---&gt; effd23d59e55
+Step 4 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+ ---&gt; Using cache
+ ---&gt; 0cde38c767ed
+Step 5 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+ ---&gt; Using cache
+ ---&gt; e36fd7404d14
+Step 6 : RUN /usr/local/openresty/luajit/bin/luarocks install luasocket
+ ---&gt; Using cache
+ ---&gt; c637b4563598
+Step 7 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; Using cache
+ ---&gt; 9cdebc902eb9
+Step 8 : ADD producer.lua /src/
+ ---&gt; Using cache
+ ---&gt; bed09e7cc06e
+Step 9 : ENV DB_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; c8bd96c15c01
+Step 10 : ENV DB_USER postgres
+ ---&gt; Using cache
+ ---&gt; bab0419316af
+Step 11 : ENV DB_PASS password
+ ---&gt; Using cache
+ ---&gt; 6260be3616d9
+Step 12 : ENV DB_NAME lua-app
+ ---&gt; Using cache
+ ---&gt; 806f38e79387
+Successfully built 806f38e79387</code></pre>
+<h3 id="run-the-stack">Run the stack</h3>
+<pre><code>ᐅ make run
+docker run -d --name db  --net host -p 127.0.0.1:5342:5432 db:9
+7ba8470ae9b3d42007831c957d7e075bcfa3d598ce0f4107e41a1d467023d119
+docker run -d --name app --net host -p 127.0.0.1:8000:8000 app:9
+3349b9bb44acbf6dbd456d5e66048072708e8a82f1a30e4a9e43bf464ade0416</code></pre>
+<h3 id="load-up-the-database-with-some-posts">Load up the database with some posts</h3>
+<pre><code>ᐅ make load-pg
+...
+enqueue: 497
+{&quot;timestamp&quot;:&quot;03-05-2017--06-07-02&quot;,&quot;msg&quot;:&quot;hi! this is 497&quot;}
+enqueue: 498
+{&quot;timestamp&quot;:&quot;03-05-2017--06-07-02&quot;,&quot;msg&quot;:&quot;hi! this is 498&quot;}
+enqueue: 499
+{&quot;timestamp&quot;:&quot;03-05-2017--06-07-02&quot;,&quot;msg&quot;:&quot;hi! this is 499&quot;}
+enqueue: 500
+{&quot;timestamp&quot;:&quot;03-05-2017--06-07-02&quot;,&quot;msg&quot;:&quot;hi! this is 500&quot;}</code></pre>
+<h3 id="test-query">Test query!</h3>
+<pre><code>ᐅ make test | less
+Date: Sun, 05 Mar 2017 06:07:51 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;denied&quot;,&quot;method&quot;:&quot;POST&quot;}
+curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+HTTP/1.1 200 OK    0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 06:07:51 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;msg&quot;:[{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 500\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 499\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 498\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 497\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 496\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 495\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 494\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 493\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 492\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 491\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 490\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 489\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 488\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 487\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 486\&quot;}&quot;},{&quot;data&quot;:&quot;{\&quot;timestamp\&quot;:\&quot;03-05-2017--06-07-02\&quot;,\&quot;msg\&quot;:\&quot;hi! this is 485\&quot;}&quot;}
+...</code></pre>
+<p>OK, I think we’re ready to put together a demo for the original task!</p>
+<hr />
+<p>Time Tracking: since last check: 8 hours; total: 15 hours</p>
+<h3 id="continuing-on-to-part-9-http-clients1.">Continuing on to <a href="2017-03-09-lua-and-openresty-part-9-http-clients.html">Part 9, HTTP Clients</a>.</h3>
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

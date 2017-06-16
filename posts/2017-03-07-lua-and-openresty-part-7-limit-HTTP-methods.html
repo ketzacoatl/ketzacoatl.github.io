@@ -31,7 +31,7 @@
 
 <p>In <a href="2017-03-06-lua-and-openresty-part-6-data-processing-sink.html">Part 6</a> of this series, we demonstrated how to write a simple but effective data processing sink with redis as the queue to safely store message before and during processing.</p>
 <p>In this post, we’ll take a short detour to briefly investigate conditionals based on the HTTP method used in the request.</p>
-<p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/08-limit-http-methods">we are here</a>.</p>
+<p>If you are following along in the code, <a href="2017-03-08-lua-and-openresty-part-8-reading-from-postgres.html">we are here</a>.</p>
 <h2 id="restricting-access-based-on-http-method">Restricting access based on HTTP method</h2>
 <p>Let’s say you have an endpoint that accepts <code>GET</code> and <code>POST</code>, how do you ensure you only process requests of those type, and block non-allowed methods as early as possible? The purpose of this exercise is to demonstrate how to inspect and react to the specific HTTP method used to access the URI location. While there are multiple ways to accomplish this directly in <code>nginx.conf</code>, we will use Lua to inspect and take action on these methods.</p>
 <h3 id="micro-example">Micro Example</h3>
@@ -192,6 +192,7 @@ Transfer-Encoding: chunked
 Connection: keep-alive
 
 {&quot;status&quot;:&quot;allowed&quot;,&quot;method&quot;:&quot;POST&quot;}</code></pre>
+<h3 id="continuing-on-to-part-8-reading-from-the-postgres1.">Continuing on to <a href="2017-03-08-lua-and-openresty-part-8-reading-from-postgres.html">Part 8, Reading from the Postgres</a>.</h3>
 
         </div>
         <div id="footer">

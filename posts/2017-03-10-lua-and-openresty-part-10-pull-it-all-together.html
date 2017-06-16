@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Spaceship Earth - Intro to Lua and Openresty, Part 10: Pull it all together!</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Intro to Lua and Openresty, Part 10: Pull it all together!</h1>
+
+            <div class="info">
+    Posted on March 10, 2017
+    
+</div>
+
+<p>Let’s review our progress as we’ve prepared for this demo:</p>
+<ul>
+<li><a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Part 1</a>:
+<ul>
+<li>use the openresty docker image, the alpine variant</li>
+<li>handle a GET request with Openresty</li>
+<li>use nginx <code>content_by_lua</code></li>
+<li>use <code>ngx.say</code> to respond with a hello world from nginx/lua, in HTML</li>
+<li><code>require()</code></li>
+<li><code>cjson.encode()</code> to create a JSON object in lua, hello world with JSON</li>
+<li>nginx <code>HTTP_OK</code> response code</li>
+<li>hello world from stand-alone lua script</li>
+<li>basic <code>Makefile</code></li>
+</ul></li>
+<li><a href="2017-03-03-JSON-POST-processing-in-openresty.html">Part 2</a>:
+<ul>
+<li>use <code>resty.reqargs</code> to validate/process a POST request with Openresty</li>
+<li>install a lua module</li>
+<li>process / validate / use JSON object from POST</li>
+<li>include build / run / test / debug / clean workflow in <code>Makefile</code></li>
+</ul></li>
+<li><a href="2017-03-04-lua-and-openresty-part-3-write-to-postgres.html">Part 3</a>:
+<ul>
+<li>automate db init with postgres docker image</li>
+<li>use <code>pgmoon</code> to connect to postgres</li>
+<li>assertions and handling IO failure with <code>assert()</code></li>
+<li>write JSON to postgres</li>
+<li>improve JSON HTTP response</li>
+</ul></li>
+<li><a href="2017-03-04-lua-and-openresty-part-4-using-envvars.html">Part 4</a>:
+<ul>
+<li>using <code>os.getenv()</code> to access and use environment variables in nginx/lua and luascript</li>
+<li>parametize the database connection</li>
+</ul></li>
+<li><a href="2017-03-05-lua-and-openresty-part-5-redis.html">Part 5</a>:
+<ul>
+<li>use <code>resty.redis</code> to connect to redis</li>
+<li>conditionals, error handling, assertions and basic failure messages</li>
+<li>use <code>lpush</code> to write a JSON message to a table in redis</li>
+</ul></li>
+<li><a href="2017-03-06-lua-and-openresty-part-6-data-processing-sink.html">Part 6</a>:
+<ul>
+<li>use <code>hiredis</code> to connect to redis</li>
+<li>playing ping/pong with redis, and basic redis commands</li>
+<li>basic queues and data processing pipelines</li>
+<li>use <code>os.date()</code> and date formats to create a timestamp</li>
+<li>using for loops</li>
+<li>creating our own functions</li>
+<li>simulate “safe” work queue with RPOPLPUSH and friends</li>
+<li>worker scripts to populate our queue/datastore</li>
+</ul></li>
+<li><a href="2017-03-07-lua-and-openresty-part-7-limit-HTTP-methods.html">Part 7</a>:
+<ul>
+<li>conditional processing based on HTTP methods</li>
+<li>exit with <code>HTTP_NOT_ALLOWED</code> response code</li>
+</ul></li>
+<li><a href="2017-03-08-lua-and-openresty-part-8-reading-from-postgres.html">Part 8</a>:
+<ul>
+<li>querying Postgres and returning JSON messages from the database</li>
+</ul></li>
+<li><a href="2017-03-09-lua-and-openresty-part-9-http-clients.html">Part 9</a>:
+<ul>
+<li>using <code>httpclient</code> to explore <code>GET</code> and <code>POST</code> requests as an HTTP client</li>
+<li>print the response body, code, headers, status, errors</li>
+<li>use <code>cliargs</code> to process cli parameters/args</li>
+<li>more functions, program structure</li>
+<li><code>math.random()</code></li>
+<li>batch POST to generate and send many requests into the system</li>
+<li>print list of top posts from the system</li>
+</ul></li>
+</ul>
+<p>In this post, we will use all of these capabilities together to run a demo of a basic data processing sink based on redis.</p>
+<p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/demo">we are here</a>.</p>
+<h3 id="components-in-the-system">Components in the System</h3>
+<pre><code>      User                                                                         User
+    +------+                                                                        +
+    | JSON |                                                                        |
+    +------+                                                                        |
+       ||                                                                           |
+       ||                                                                           |
+       ||                                                                           |
++------------------------------------------------------------------------------------------------------+
+|      ||                                                                           |                  |
+|      VV                                                                           |                  |
+| +------------+                                                           +--------+--------+         |
+| | location: /|                   Openresty / NGINX Webapp Server         | location: /list |         |
+| | POST       |                                                           | GET             | &lt;-+     |
+| +-----+------+                                                           |                 |   |     |
+|       |                                                                  +-------------+---+   |     |
+|       |                                                                                |       |     |
++------------------------------------------------------------------------------------------------------+
+        |                                                                                |       |
+        |                                                                                |       |
+        |        +----------------------------------------------------------+            |       |
+        |        |      ENQUEUED (list)                 PROCESSING (list)   |            |       |  SELECT
+        |  LPUSH |    +---+---+---+---+    RPOPLPUSH    +---+---+---+---+   |            |       |  data FROM
+        +-----------&gt; | d | c | b | a +-&gt;--&gt;---+---&gt;---&gt;+ a |   |   |   |   |            |       |  posts
+                 |    +---+---+---+---+        |        +---+---+---+---+   |            |       |  ORDER BY
+                 |                             |                            |            |       |  id
+                 |    Redis Queue              |                            |            |       |  DESC
+                 |                             |                            |            |       |  LIMIT 10
+                 +----------------------------------------------------------+            |       |
+                                               |                                         |       |
+                                               |                                         |       |
+                                               |                                         |       |
+                                   +------------------------------+                      v       |
+                                   |           |                  |                              |
+                                   V           V a                V                  +-----------+--+
+                                +------+    +------+           +------+              |              |
+                                |      |    |      |           |      |              |  Postgres    |
+                                | sink |    | sink |     ...   | sink |              |  Database    |
+                                |      |    |      |           |      |              |              |
+                                +--+---+    +--+---+           +--+---+              +--------------+
+                                   |           |                  |
+                                   |           |                  |                         ^
+                                   |           |                  |                         |
+                                   |           |                  |                         |
+                                   +-----------+------------------+-------------------------+</code></pre>
+<p>The system has the following in it:</p>
+<ul>
+<li>nginx API server
+<ul>
+<li>accepts POST with arbitrary JSON, writes that JSON to a queue on redis
+<ul>
+<li>responds with a confirmation the msg was received and queued, and an echo of the message</li>
+</ul></li>
+<li>responds to GET with the last 100 messages posted</li>
+</ul></li>
+<li>postgres database
+<ul>
+<li>long-term datastore for messages</li>
+</ul></li>
+<li>redis
+<ul>
+<li>temporary storage for in-flight messages</li>
+</ul></li>
+<li>worker instances
+<ul>
+<li>poll redis for items on the queue</li>
+<li>for each item found on the queue, process the item (write it to postgres)</li>
+<li>run multiple instances</li>
+</ul></li>
+</ul>
+<h3 id="makefile">Makefile</h3>
+<p>Here is our <code>Makefile</code>, rather substantial:</p>
+<pre><code>build:
+	docker build --tag=db:demo   --rm=true ./db
+	docker build --tag=app:demo  --rm=true ./app
+	docker build --tag=sink:demo --rm=true ./sink
+
+run:
+	docker run -d --name db    --net host -p 127.0.0.1:5342:5432 db:demo
+	docker run -d --name app   --net host -p 127.0.0.1:8000:8000 app:demo
+	docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+	docker run -d --name sink  --net host --entrypoint /usr/local/openresty/luajit/bin/luajit sink:demo worker.lua
+
+dev:
+	docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+	docker run -d --name db    --net host -p 127.0.0.1:5342:5432 db:demo
+	docker run -d --name app   --net host -p 127.0.0.1:8000:8000 -v `pwd`/app/producer.lua:/src/producer.lua -v `pwd`/app/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf app:demo
+
+shell-app:
+	docker exec -it app /bin/sh
+
+shell-sink:
+	docker exec -it sink /bin/sh
+
+shell-redis:
+	docker exec -it redis redis-cli
+
+clean:
+	docker stop db     || true
+	docker stop app    || true
+	docker stop sink   || true
+	docker stop redis  || true
+	docker rm   db     || true
+	docker rm   app    || true
+	docker rm   sink   || true
+	docker rm   redis  || true
+
+reload:
+	docker exec -it app /usr/local/openresty/nginx/sbin/nginx -s reload
+
+logs-app:
+	docker exec -it app tail -f /usr/local/openresty/nginx/error.log
+
+cat-posts:
+	docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+
+cat-queue:
+	docker exec -it redis redis-cli -c LRANGE enqueued 0 -1
+
+post-msgs:
+	curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/
+	curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 2, &quot;username&quot;:&quot;foo&quot;,&quot;password&quot;:&quot;foo&quot;}' localhost:8000/
+	curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 3, &quot;username&quot;:&quot;bar&quot;,&quot;password&quot;:&quot;bar&quot;}' localhost:8000/
+
+curl-msgs:
+	curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list</code></pre>
+<h3 id="openresty-app">Openresty App</h3>
+<p><code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">EXPOSE</span> 8000
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
+<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
+<span class="kw">ENV</span> DB_HOST    127.0.0.1
+<span class="kw">ENV</span> DB_USER    postgres
+<span class="kw">ENV</span> DB_PASS    password
+<span class="kw">ENV</span> DB_NAME    lua-app</code></pre></div>
+<p><code>nginx.conf</code>:</p>
+<pre class="nginx"><code>worker_processes  1;                                                                                                                                                 [26/376]
+env DB_HOST;
+env DB_USER;
+env DB_PASS;
+env DB_NAME;
+env REDIS_HOST;
+error_log error.log;
+events {
+    worker_connections 1024;
+}
+http {
+    server {
+        listen        8000;
+        charset       utf-8;
+        charset_types application/json;
+        default_type  application/json;
+        location / {
+            content_by_lua '
+              local cjson = require &quot;cjson&quot;
+              local http_method = ngx.var.request_method
+              if http_method == &quot;POST&quot; then
+                local redis = require &quot;resty.redis&quot;
+                local r     = redis:new()
+                local ok, err = r:connect(os.getenv(&quot;REDIS_HOST&quot;), 6379)
+                if not ok then
+                  emsg = &quot;failed to connect to queue: &quot;
+                  ngx.say(cjson.encode({status = &quot;error&quot;, msg = emsg .. err}))
+                  return ngx.exit(ngx.HTTP_SERVICE_UNAVAILABLE)
+                end
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                assert(r:lpush(&quot;enqueued&quot;, cjson.encode(post)))
+                r = nil
+                ngx.status = ngx.HTTP_OK
+                ngx.say(cjson.encode({status = &quot;saved&quot;, msg=post}))
+                return ngx.exit(ngx.HTTP_OK)
+              else
+                ngx.status = ngx.HTTP_NOT_ALLOWED
+                ngx.say(cjson.encode({method = http_method , status = &quot;denied&quot;}))
+                return ngx.exit(ngx.HTTP_NOT_ALLOWED)
+              end
+            ';
+        }
+        location /list {
+            content_by_lua '
+              local cjson = require &quot;cjson&quot;
+              local http_method = ngx.var.request_method
+              if http_method == &quot;GET&quot; then
+                local pgmoon = require &quot;pgmoon&quot;
+                local pg = pgmoon.new({
+                  host     = os.getenv(&quot;DB_HOST&quot;),
+                  port     = &quot;5432&quot;,
+                  user     = os.getenv(&quot;DB_USER&quot;),
+                  password = os.getenv(&quot;DB_PASS&quot;),
+                  database = os.getenv(&quot;DB_NAME&quot;)
+                })
+                assert(pg:connect())
+                local get, post, files = require &quot;resty.reqargs&quot;()
+                top = pg:query(&quot;SELECT data FROM posts ORDER BY id DESC LIMIT 10;&quot;)
+                pg:keepalive()
+                pg = nil
+                ngx.status = ngx.HTTP_OK
+                ngx.say(cjson.encode({ msg = top }))
+                return ngx.exit(ngx.HTTP_OK)
+              else
+                ngx.status = ngx.HTTP_NOT_ALLOWED
+                ngx.say(cjson.encode({method = http_method , status = &quot;denied&quot;}))
+                return ngx.exit(ngx.HTTP_NOT_ALLOWED)
+              end
+            ';
+        }
+
+    }
+}</code></pre>
+<h3 id="database">Database</h3>
+<p><code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
+<span class="kw">ENV</span>  POSTGRES_PASSWORD password
+<span class="kw">ENV</span>  POSTGRES_DB       lua-app
+<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</code></pre></div>
+<p><code>init.sql</code> :</p>
+<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</code></pre></div>
+<h3 id="data-processing-sink">Data Processing Sink</h3>
+<p><code>Dockerfile</code>:</p>
+<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
+
+<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
+<span class="kw">ENV</span> DB_HOST    127.0.0.1
+<span class="kw">ENV</span> DB_USER    postgres
+<span class="kw">ENV</span> DB_PASS    password
+<span class="kw">ENV</span> DB_NAME    lua-app
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+<span class="kw">ADD</span> worker.lua /src/
+<span class="kw">WORKDIR</span> /src/
+<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<p><code>worker.lua</code>:</p>
+<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
+<span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
+<span class="kw">local</span> pgmoon <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span>
+<span class="kw">local</span> pg <span class="ot">=</span> pgmoon<span class="ot">.</span>new<span class="ot">({</span>
+  host     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="ot">),</span>
+  port     <span class="ot">=</span> <span class="st">&quot;5432&quot;</span><span class="ot">,</span>
+  user     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_USER&quot;</span><span class="ot">),</span>
+  password <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="ot">),</span>
+  database <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="ot">)</span>
+<span class="ot">})</span>
+<span class="fu">assert</span><span class="ot">(</span>pg:<span class="fu">connect</span><span class="ot">())</span>
+<span class="kw">local</span> encode_json <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="ot">).</span>encode_json
+
+<span class="co">-- names for our lists in redis</span>
+<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
+<span class="kw">local</span> p     <span class="ot">=</span> <span class="st">&quot;processing&quot;</span>
+<span class="co">-- length of time (seconds) to sleep</span>
+<span class="kw">local</span> delay <span class="ot">=</span> <span class="dv">0.001</span>
+
+<span class="co">-- return redis client, or fail and exit</span>
+credis <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
+  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
+  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
+    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
+    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
+  <span class="kw">else</span>
+    <span class="kw">return</span> rc
+  <span class="kw">end</span>
+<span class="kw">end</span>
+<span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span>
+get_work <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- write data to postgres</span>
+write_post <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>data<span class="ot">)</span>
+  <span class="fu">assert</span><span class="ot">(</span>pg:query<span class="ot">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="ot">..</span> encode_json<span class="ot">(</span>data<span class="ot">)</span> <span class="ot">..</span> <span class="st">&quot;);&quot;</span><span class="ot">))</span>
+<span class="kw">end</span>
+<span class="co">-- &quot;do&quot; the work</span>
+process <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
+  write_post<span class="ot">(</span>i<span class="ot">)</span>
+  <span class="fu">print</span><span class="ot">(</span>i<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- work is done, drop it from the processing table</span>
+dondrop <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
+  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> p<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> i<span class="ot">)</span>
+<span class="kw">end</span>
+<span class="co">-- pause for a moment..</span>
+<span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span>
+sleep <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
+  <span class="fu">os.execute</span><span class="ot">(</span><span class="st">&quot;sleep &quot;</span> <span class="ot">..</span> <span class="fu">tonumber</span><span class="ot">(</span>t<span class="ot">))</span>
+<span class="kw">end</span>
+<span class="co">--</span>
+<span class="co">-- MAIN</span>
+rc <span class="ot">=</span> credis<span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
+<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
+<span class="co">-- loop doing work until you can't</span>
+<span class="kw">while</span> <span class="kw">true</span> <span class="kw">do</span>
+  item<span class="ot">,</span> err<span class="ot">,</span> code <span class="ot">=</span> get_work<span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
+  <span class="kw">if</span> item<span class="ot">.</span>name <span class="ot">==</span> <span class="st">&quot;NIL&quot;</span> <span class="kw">then</span>
+    <span class="co">-- pass</span>
+  <span class="kw">else</span>
+    <span class="co">--print(&quot;got item!&quot;)</span>
+    process<span class="ot">(</span>item<span class="ot">)</span>
+    dondrop<span class="ot">(</span>item<span class="ot">)</span>
+  <span class="kw">end</span>
+  sleep<span class="ot">(</span>delay<span class="ot">)</span>
+<span class="kw">end</span>
+
+rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<h3 id="make-the-images">Make the Images</h3>
+<pre><code>ᐅ make build
+docker build --tag=db:demo   --rm=true ./db
+Sending build context to Docker daemon 3.072 kB
+Step 1 : FROM postgres:alpine
+ ---&gt; f0476a087b97
+Step 2 : ENV POSTGRES_PASSWORD password
+ ---&gt; Using cache
+ ---&gt; 30d766415bf6
+Step 3 : ENV POSTGRES_DB lua-app
+ ---&gt; Using cache
+ ---&gt; 449a34987810
+Step 4 : ADD init.sql /docker-entrypoint-initdb.d/
+ ---&gt; Using cache
+ ---&gt; 7ac365dda47a
+Successfully built 7ac365dda47a
+docker build --tag=app:demo  --rm=true ./app
+Sending build context to Docker daemon 18.43 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : EXPOSE 8000
+ ---&gt; Using cache
+ ---&gt; 35a8c6e42825
+Step 3 : RUN /usr/local/openresty/luajit/bin/luarocks install pgmoon
+ ---&gt; Using cache
+ ---&gt; effd23d59e55
+Step 4 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
+ ---&gt; Using cache
+ ---&gt; 0cde38c767ed
+Step 5 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+ ---&gt; Using cache
+ ---&gt; e36fd7404d14
+Step 6 : RUN /usr/local/openresty/luajit/bin/luarocks install luasocket
+ ---&gt; Using cache
+ ---&gt; c637b4563598
+Step 7 : ADD nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+ ---&gt; Using cache
+ ---&gt; bc33cf10bf01
+Step 8 : ENV REDIS_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; 9f78043fdfc7
+Step 9 : ENV DB_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; c0e0abcf87d5
+Step 10 : ENV DB_USER postgres
+ ---&gt; Using cache
+ ---&gt; f2f16dfddb1f
+Step 11 : ENV DB_PASS password
+ ---&gt; Using cache
+ ---&gt; 7e0b6d86ae27
+Step 12 : ENV DB_NAME lua-app
+ ---&gt; Using cache
+ ---&gt; b0a48a3d9595
+Successfully built b0a48a3d9595
+docker build --tag=sink:demo --rm=true ./sink
+Sending build context to Docker daemon 4.608 kB
+Step 1 : FROM openresty/openresty:alpine-fat
+ ---&gt; 366babf2b04d
+Step 2 : ENV REDIS_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; de5f965dde03
+Step 3 : ENV DB_HOST 127.0.0.1
+ ---&gt; Using cache
+ ---&gt; b06582dae81d
+Step 4 : ENV DB_USER postgres
+ ---&gt; Using cache
+ ---&gt; f3df1ddede03
+Step 5 : ENV DB_PASS password
+ ---&gt; Using cache
+ ---&gt; 402db0ba86ba
+Step 6 : ENV DB_NAME lua-app
+ ---&gt; Using cache
+ ---&gt; 030fc5a44f2e
+Step 7 : RUN /usr/local/openresty/luajit/bin/luarocks install pgmoon
+ ---&gt; Using cache
+ ---&gt; f8423c4e9542
+Step 8 : RUN /usr/local/openresty/luajit/bin/luarocks install luasocket
+ ---&gt; Using cache
+ ---&gt; d2e0bec18540
+Step 9 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
+ ---&gt; Using cache
+ ---&gt; 64d42d338134
+Step 10 : RUN /usr/local/openresty/luajit/bin/luarocks install lua-cjson
+ ---&gt; Using cache
+ ---&gt; 899c82d7d9dc
+Step 11 : ADD worker.lua /src/
+ ---&gt; Using cache
+ ---&gt; e08cab28d016
+Step 12 : WORKDIR /src/
+ ---&gt; Using cache
+ ---&gt; d46f7aee15f9
+Step 13 : ENTRYPOINT /bin/sh
+ ---&gt; Using cache
+ ---&gt; f461ed471c63
+Successfully built f461ed471c63
+docker build --tag=load:demo --rm=true ./load
+Sending build context to Docker daemon 15.87 kB
+Step 1 : FROM openresty/openresty:alpine
+ ---&gt; 984d503b1bd8
+Step 2 : ADD load-test.lua /src/
+ ---&gt; ad623a0dfb04
+Removing intermediate container 21a2b3186d98
+Step 3 : WORKDIR /src/
+ ---&gt; Running in 715d14831bd5
+ ---&gt; c709f22bdc16
+Removing intermediate container 715d14831bd5
+Step 4 : ENTRYPOINT /bin/sh
+ ---&gt; Running in 23f3389007ba
+ ---&gt; ecf7b4f08462
+Removing intermediate container 23f3389007ba
+Successfully built ecf7b4f08462</code></pre>
+<h3 id="run-the-demo">Run the Demo!</h3>
+<p>Start ’em up..</p>
+<pre><code>ᐅ make run
+docker run -d --name db    --net host -p 127.0.0.1:5342:5432 db:demo
+9141dc3fb9788d73be7971dd44a3d140306695914b5422191f5e9de2f42c7f01
+docker run -d --name app   --net host -p 127.0.0.1:8000:8000 app:demo
+46cde00714668131e32fbcebc4afb417415ef3437fa5bd669c536bc21ba03a11
+docker run -d --name redis --net host -p 127.0.0.1:6379:6379 redis:alpine
+139def3c153a845d8d3728e6c7de167ed7ab0a6045a32b72d84cd431e3487e53
+docker run -d --name sink  --net host --entrypoint /usr/local/openresty/luajit/bin/luajit sink:demo worker.lua
+c3ad3e737997437ec82d6b2899d8746d1de1a9cef72fdc7b1ad63395e8c4774f</code></pre>
+<p>Wait, there should be 4!</p>
+<pre><code>ᐅ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+139def3c153a        redis:alpine        &quot;docker-entrypoint.sh&quot;   11 seconds ago      Up 10 seconds                           redis
+46cde0071466        app:demo            &quot;/usr/local/openresty&quot;   11 seconds ago      Up 10 seconds                           app
+9141dc3fb978        db:demo             &quot;docker-entrypoint.sh&quot;   12 seconds ago      Up 11 seconds                           db</code></pre>
+<p>…when the <code>sink</code> starts up before postgres is available, the <code>sink</code> fails hard. But, interestingly, this is helpful for stepping through the demo. Let’s leave the <code>sink</code> offline for a moment.</p>
+<p>Let’s load up the queue with a few messages:</p>
+<pre><code>ᐅ make post-msgs
+curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 1, &quot;username&quot;:&quot;xyz&quot;,&quot;password&quot;:&quot;xyz&quot;}' localhost:8000/
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 07:41:15 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;password&quot;:&quot;xyz&quot;,&quot;username&quot;:&quot;xyz&quot;,&quot;id&quot;:1}}
+curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 2, &quot;username&quot;:&quot;foo&quot;,&quot;password&quot;:&quot;foo&quot;}' localhost:8000/
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 07:41:15 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;password&quot;:&quot;foo&quot;,&quot;username&quot;:&quot;foo&quot;,&quot;id&quot;:2}}
+curl -i -H &quot;Content-Type: application/json&quot; -X POST -d '{&quot;id&quot;: 3, &quot;username&quot;:&quot;bar&quot;,&quot;password&quot;:&quot;bar&quot;}' localhost:8000/
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 07:41:15 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;status&quot;:&quot;saved&quot;,&quot;msg&quot;:{&quot;password&quot;:&quot;bar&quot;,&quot;username&quot;:&quot;bar&quot;,&quot;id&quot;:3}}</code></pre>
+<p>The <code>sink</code> is offline, so requesting the list of lastest posts will return empty:</p>
+<pre><code>ᐅ make curl-msgs
+curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 07:44:20 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;msg&quot;:{}}</code></pre>
+<p>…and the <code>posts</code> table in the database would be empty:</p>
+<pre><code>ᐅ make cat-posts
+docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+ id | data
+----+------
+(0 rows)</code></pre>
+<p>But the messages should be in the queue..</p>
+<pre><code>ᐅ make cat-queue
+docker exec -it redis redis-cli -c LRANGE enqueued 0 -1
+1) &quot;{\&quot;password\&quot;:\&quot;bar\&quot;,\&quot;username\&quot;:\&quot;bar\&quot;,\&quot;id\&quot;:3}&quot;
+2) &quot;{\&quot;password\&quot;:\&quot;foo\&quot;,\&quot;username\&quot;:\&quot;foo\&quot;,\&quot;id\&quot;:2}&quot;
+3) &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;,\&quot;id\&quot;:1}&quot;</code></pre>
+<p>Let’s restart the sink and get those messages moved:</p>
+<pre><code>ᐅ make rerun-sink
+docker rm sink
+sink
+docker run -d --name sink  --net host --entrypoint /usr/local/openresty/luajit/bin/luajit sink:demo worker.lua
+188d6516936f974c2a96da9b25d2182bb7390d79b978562f109045a1732cca5a</code></pre>
+<p>Anything still in the queue?</p>
+<pre><code>ᐅ make cat-queue
+docker exec -it redis redis-cli -c LRANGE enqueued 0 -1
+(empty list or set)</code></pre>
+<p>Anything in the database?</p>
+<pre><code>ᐅ make cat-posts
+docker exec -it db psql -U postgres -d lua-app -c 'SELECT * FROM posts;'
+ id |                          data
+----+--------------------------------------------------------
+  1 | &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;,\&quot;id\&quot;:1}&quot;
+  2 | &quot;{\&quot;password\&quot;:\&quot;foo\&quot;,\&quot;username\&quot;:\&quot;foo\&quot;,\&quot;id\&quot;:2}&quot;
+  3 | &quot;{\&quot;password\&quot;:\&quot;bar\&quot;,\&quot;username\&quot;:\&quot;bar\&quot;,\&quot;id\&quot;:3}&quot;
+(3 rows)</code></pre>
+<p>OK, let’s request them through the API:</p>
+<pre><code>ᐅ make curl-msgs
+curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list
+HTTP/1.1 200 OK
+Server: openresty/1.11.2.2
+Date: Sun, 05 Mar 2017 07:48:12 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{&quot;msg&quot;:[{&quot;data&quot;:&quot;{\&quot;password\&quot;:\&quot;bar\&quot;,\&quot;username\&quot;:\&quot;bar\&quot;,\&quot;id\&quot;:3}&quot;},{&quot;data&quot;:&quot;{\&quot;password\&quot;:\&quot;foo\&quot;,\&quot;username\&quot;:\&quot;foo\&quot;,\&quot;id\&quot;:2}&quot;},{&quot;data&quot;:&quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;,\&quot;id\&quot;:1}&quot;}]}</code></pre>
+<p>can also view thru <code>jq</code>:</p>
+<pre><code>ᐅ make curl-msgs | tail -n 1 | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   202    0   202    0     0  24363      0 --:--:-- --:--:-- --:--:-- 25250
+{
+  &quot;msg&quot;: [
+    {
+      &quot;data&quot;: &quot;{\&quot;password\&quot;:\&quot;bar\&quot;,\&quot;username\&quot;:\&quot;bar\&quot;,\&quot;id\&quot;:3}&quot;
+    },
+    {
+      &quot;data&quot;: &quot;{\&quot;password\&quot;:\&quot;foo\&quot;,\&quot;username\&quot;:\&quot;foo\&quot;,\&quot;id\&quot;:2}&quot;
+    },
+    {
+      &quot;data&quot;: &quot;{\&quot;password\&quot;:\&quot;xyz\&quot;,\&quot;username\&quot;:\&quot;xyz\&quot;,\&quot;id\&quot;:1}&quot;
+    }
+  ]
+}</code></pre>
+<p>That confirms we have the basics functional. Let’s see what we can do for load tests next.</p>
+<hr />
+<p>Time Tracking: since last check: 2 hours; total: 17 hours</p>
+<hr />
+
+        </div>
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
