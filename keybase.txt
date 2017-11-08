@@ -1,0 +1,55 @@
+==================================================================
+https://keybase.io/ketzacoatl
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://ketzacoatl.github.io
+  * I am ketzacoatl (https://keybase.io/ketzacoatl) on keybase.
+  * I have a public key ASABHBuq9eKf_Tg1I5nNIxbqYyoqLkQixEdaZ1v_cOSNcAo
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "0120011c1baaf5e29ffd38352399cd2316ea632a2a2e4422c4475a675bff70e48d700a",
+      "host": "keybase.io",
+      "kid": "0120011c1baaf5e29ffd38352399cd2316ea632a2a2e4422c4475a675bff70e48d700a",
+      "uid": "7a6156259d63e59cad12eefa60087f19",
+      "username": "ketzacoatl"
+    },
+    "merkle_root": {
+      "ctime": 1510142222,
+      "hash": "6ca652c1f23c736659df6975792e7417fa3dd0c535f0a59328e5a7bf5d749f5c186acdb00266fc6433a2b24c9f06976601e636fc428deb19dff70ac735026954",
+      "hash_meta": "c0584b5d78613d14c6b7e8ea77857b01eafeb70c72d97dd38cc403b4204fb486",
+      "seqno": 1679780
+    },
+    "service": {
+      "hostname": "ketzacoatl.github.io",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 1
+  },
+  "client": {
+    "name": "keybase.io go client",
+    "version": "1.0.35"
+  },
+  "ctime": 1510142247,
+  "expire_in": 504576000,
+  "prev": "5180a65ff3df76ab1cb7def637910ebcc687b062d21ad3f4dd499531bdca73d7",
+  "seqno": 14,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+hKRib2R5hqhkZXRhY2hlZMOpaGFzaF90eXBlCqNrZXnEIwEgARwbqvXin/04NSOZzSMW6mMqKi5EIsRHWmdb/3DkjXAKp3BheWxvYWTFA097ImJvZHkiOnsia2V5Ijp7ImVsZGVzdF9raWQiOiIwMTIwMDExYzFiYWFmNWUyOWZmZDM4MzUyMzk5Y2QyMzE2ZWE2MzJhMmEyZTQ0MjJjNDQ3NWE2NzViZmY3MGU0OGQ3MDBhIiwiaG9zdCI6ImtleWJhc2UuaW8iLCJraWQiOiIwMTIwMDExYzFiYWFmNWUyOWZmZDM4MzUyMzk5Y2QyMzE2ZWE2MzJhMmEyZTQ0MjJjNDQ3NWE2NzViZmY3MGU0OGQ3MDBhIiwidWlkIjoiN2E2MTU2MjU5ZDYzZTU5Y2FkMTJlZWZhNjAwODdmMTkiLCJ1c2VybmFtZSI6ImtldHphY29hdGwifSwibWVya2xlX3Jvb3QiOnsiY3RpbWUiOjE1MTAxNDIyMjIsImhhc2giOiI2Y2E2NTJjMWYyM2M3MzY2NTlkZjY5NzU3OTJlNzQxN2ZhM2RkMGM1MzVmMGE1OTMyOGU1YTdiZjVkNzQ5ZjVjMTg2YWNkYjAwMjY2ZmM2NDMzYTJiMjRjOWYwNjk3NjYwMWU2MzZmYzQyOGRlYjE5ZGZmNzBhYzczNTAyNjk1NCIsImhhc2hfbWV0YSI6ImMwNTg0YjVkNzg2MTNkMTRjNmI3ZThlYTc3ODU3YjAxZWFmZWI3MGM3MmQ5N2RkMzhjYzQwM2I0MjA0ZmI0ODYiLCJzZXFubyI6MTY3OTc4MH0sInNlcnZpY2UiOnsiaG9zdG5hbWUiOiJrZXR6YWNvYXRsLmdpdGh1Yi5pbyIsInByb3RvY29sIjoiaHR0cHM6In0sInR5cGUiOiJ3ZWJfc2VydmljZV9iaW5kaW5nIiwidmVyc2lvbiI6MX0sImNsaWVudCI6eyJuYW1lIjoia2V5YmFzZS5pbyBnbyBjbGllbnQiLCJ2ZXJzaW9uIjoiMS4wLjM1In0sImN0aW1lIjoxNTEwMTQyMjQ3LCJleHBpcmVfaW4iOjUwNDU3NjAwMCwicHJldiI6IjUxODBhNjVmZjNkZjc2YWIxY2I3ZGVmNjM3OTEwZWJjYzY4N2IwNjJkMjFhZDNmNGRkNDk5NTMxYmRjYTczZDciLCJzZXFubyI6MTQsInRhZyI6InNpZ25hdHVyZSJ9o3NpZ8RAh4pZluvtzCTkn8CmSeSfygnv/yySOVPfK2kh/+87Rj0NBYFh2UayK2CPOiq4FGY5DVLEvWes3FymL1q3Y57cBKhzaWdfdHlwZSCkaGFzaIKkdHlwZQildmFsdWXEIGYJTaAHO2fOkp+iBiVKJgbnUjVrAM+Q184vlj6ChUCho3RhZ80CAqd2ZXJzaW9uAQ==
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/ketzacoatl
+
+==================================================================
