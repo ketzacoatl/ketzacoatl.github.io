@@ -3,7 +3,7 @@
 <html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Simulating package installs with Alpine's `apk` - Spaceship Earth</title>
+        <title>Maintaining Consul-Haskell - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
         <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
@@ -23,31 +23,19 @@
         </div>
 
         <div id="content">
-            <h1>Simulating package installs with Alpine's `apk`</h1>
+            <h1>Maintaining Consul-Haskell</h1>
 
             <div class="info">
-    Posted on June 13, 2017
+    Posted on July 13, 2019
     
 </div>
 
-<p>Today I discovered the <code>-s</code> flag in <code>apk</code>:</p>
-<pre><code>localhost:~# apk add -h | grep simulate
-           [--print-arch] [-s|--simulate]
-  -s, --simulate          Show what would be done</code></pre>
-<p><code>--simulate</code> does as you would expect:</p>
-<pre><code>localhost:~# apk -s add zfs-vanilla
-(1/4) Installing linux-firmware (20170330-r0)
-(2/4) Installing linux-vanilla (4.9.30-r0)
-(3/4) Installing spl-vanilla (4.9.30-r0)
-(4/4) Installing zfs-vanilla (4.9.30-r0)
-OK: 246 MiB in 87 packages</code></pre>
-<pre><code>localhost:~# apk -s add zfs-hardened
-(1/4) Installing linux-firmware (20170330-r0)
-(2/4) Installing linux-hardened (4.9.30-r0)
-(3/4) Installing spl-hardened (4.9.30-r0)
-(4/4) Installing zfs-hardened (4.9.30-r0)
-OK: 246 MiB in 87 packages</code></pre>
-<p><code>apk</code> is a simple but powerful tool. It is very well engineered, and feels refreshing to use (after years of <code>apt-get</code>).</p>
+<p><a href="https://www.consul.io/">Hashicorp’s consul</a> is an amazing tool, but I will need to leave those details to another post.</p>
+<p>For the moment, this post is about <code>consul-haskell</code>, <a href="https://github.com/alphaHeavy/consul-haskell">the Haskell library for interacting with Consul</a>, and even at that, it’ll be short.</p>
+<p>I will be co-maintaining this haskell library With help from <a href="https://github.com/nh2"><code>nh2</code></a>!</p>
+<p>See <a href="https://github.com/alphaHeavy/consul-haskell/issues/23">this ticket for more info</a>.</p>
+<p>Roadmap/etc to come in the future, though in the meantime we’ll focus on some basic clean up and API parity with Consul.</p>
+<p>File <a href="https://github.com/alphaHeavy/consul-haskell/issues/">support requests for <code>consul-haskell</code> here</a>.</p>
 
         </div>
 

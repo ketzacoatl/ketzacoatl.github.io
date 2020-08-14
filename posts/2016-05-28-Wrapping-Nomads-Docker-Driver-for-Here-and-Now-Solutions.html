@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Wrapping Nomad's Docker Driver for Here and Now Solutions</title>
+        <title>Wrapping Nomad's Docker Driver for Here and Now Solutions - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -42,12 +43,14 @@
 <h3 id="how-to-use">How to Use</h3>
 <ul>
 <li>Place <code>run-postgres</code> in some <code>$PATH</code>, such as <code>/usr/local/bin/run-postgres</code>. Keep in mind, that wrapper script will need to exist on the hosts that could run the nomad job.</li>
-<li><p>If you wish to limit the hosts where this job can run, configure a constraint with those agents. For example, to flag specific hosts as in the <code>database</code> tier, add the following to those agents’ <code>config.json</code>:</p>
-<pre><code>&quot;meta&quot;: {
-  &quot;tier&quot;: &quot;database&quot;
-},</code></pre></li>
+<li>If you wish to limit the hosts where this job can run, configure a constraint with those agents. For example, to flag specific hosts as in the <code>database</code> tier, add the following to those agents’ <code>config.json</code>:</li>
+</ul>
+<pre><code>    &quot;meta&quot;: {
+      &quot;tier&quot;: &quot;database&quot;
+    },</code></pre>
+<ul>
 <li>Copy <code>postgres.hcl</code> somewhere, and edit it. Be sure to update the <code>datacenters</code> and constraints</li>
-<li><p><code>nomad run postgres.hcl</code></p></li>
+<li><code>nomad run postgres.hcl</code></li>
 </ul>
 <p>If that was successful, you’ll see good things with <code>nomad status postgres</code>, and the container should show up with <code>docker ps</code></p>
 <h3 id="random-notes">Random Notes</h3>
@@ -61,87 +64,87 @@
 <li>If you stop the job with <code>nomad stop postgres</code>, the script will exit, but the docker container will stay running. The script will attempt to stop/remove a running container when it starts, so that is fine for updates. Use <code>docker stop   postgres</code> if you absolutely need to stop the container manually. The script can also include a signal handler that catches the signal from nomad and stops the container for you.</li>
 </ul>
 <h3 id="wrapper-script">Wrapper Script</h3>
-<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co">#!/usr/bin/env python</span>
-
-<span class="co">'''</span>
-<span class="co">This is roughly equivalent to..</span>
-<span class="co">    docker pull postgres:9.5</span>
-<span class="co">    docker stop postgres</span>
-<span class="co">    docker rm postgres</span>
-<span class="co">    docker create --name=postgres                     \</span>
-<span class="co">                  -p $NOMAD_IP_db:5432:$NOMAD_PORT_db \</span>
-<span class="co">                  -v $PGDATA:$PGDATA                  \</span>
-<span class="co">                  --net=host postgres:9.5</span>
-<span class="co">    docker start postgres</span>
-<span class="co">    docker logs -f postgres</span>
-
-<span class="co">NOTE: the code here is (intentionally) simple in an</span>
-<span class="co">effort to demonstrate the method, YMMV.</span>
-
-<span class="co">'''</span>
-<span class="im">from</span> __future__ <span class="im">import</span> print_function
-<span class="im">import</span> os
-<span class="im">import</span> sys
-<span class="im">from</span> exceptions <span class="im">import</span> <span class="pp">Exception</span>
-
-<span class="co"># docker client boilerplate</span>
-<span class="im">from</span> docker <span class="im">import</span> Client
-cli <span class="op">=</span> Client(base_url<span class="op">=</span><span class="st">'unix://var/run/docker.sock'</span>)
-cli.containers()
-
-<span class="co"># specify the network mode, port bindings, and volume mounts.</span>
-<span class="co"># this is how the docker python client wants these parameters</span>
-port    <span class="op">=</span> os.environ[<span class="st">'NOMAD_PORT_db'</span>]
-ip      <span class="op">=</span> os.environ[<span class="st">'NOMAD_IP_db'</span>]
-workdir <span class="op">=</span> os.environ[<span class="st">'PGDATA'</span>]
-host_config <span class="op">=</span> cli.create_host_config(port_bindings<span class="op">=</span>{<span class="st">'5432'</span>: (ip,port)},
-                                     network_mode<span class="op">=</span><span class="st">'host'</span>,
-                                     binds<span class="op">=</span>[(<span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (workdir, workdir))])
-<span class="co"># scrub env vars, could also pass in the env in its entirety</span>
-env <span class="op">=</span> {<span class="st">'PGDATA'</span>: workdir}
-service_name <span class="op">=</span> <span class="st">'postgres'</span>
-docker_repo  <span class="op">=</span> <span class="st">'postgres'</span>
-docker_tag   <span class="op">=</span> <span class="st">'9.5'</span>
-image <span class="op">=</span> <span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (docker_repo, docker_tag)
-<span class="bu">print</span>(<span class="st">'wrapper: attempt to pull </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> image)
-<span class="cf">try</span>: cli.pull(repository<span class="op">=</span>docker_repo, tag<span class="op">=</span>docker_tag, stream<span class="op">=</span><span class="va">False</span>)
-<span class="co"># attempt graceful exit with helpful error message if the pull fails</span>
-<span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e: <span class="bu">print</span>(e)<span class="op">;</span> sys.exit()
-<span class="bu">print</span>(<span class="st">'wrapper: attempt to stop a running container/instance, if it exists'</span>)
-<span class="cf">try</span>: cli.stop(service_name)
-<span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip stop, running container not found'</span>)
-<span class="bu">print</span>(<span class="st">'wrapper: attempt to remove an existing container, if it exists'</span>)
-<span class="cf">try</span>: cli.remove_container(container<span class="op">=</span>service_name, force<span class="op">=</span><span class="va">True</span>)
-<span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip rm, existing/old container not found'</span>)
-<span class="bu">print</span>(<span class="st">'wrapper: attempt to create a new container..'</span>)
-container <span class="op">=</span> cli.create_container(image<span class="op">=</span>image, detach<span class="op">=</span><span class="va">True</span>, name<span class="op">=</span>service_name,
-                                 working_dir<span class="op">=</span>workdir, ports<span class="op">=</span>[port], environment<span class="op">=</span>env,
-                                 host_config<span class="op">=</span>host_config)
-<span class="bu">print</span>(<span class="st">'wrapper: created </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container)
-<span class="bu">id</span><span class="op">=</span>container.get(<span class="st">'Id'</span>)
-<span class="bu">print</span>(<span class="st">'wrapper: attempt to start that container (</span><span class="sc">%s</span><span class="st">)'</span> <span class="op">%</span> <span class="bu">id</span>)
-cli.start(container<span class="op">=</span><span class="bu">id</span>)
-<span class="bu">print</span>(<span class="st">'wrapper: retrieve and print stdout/err...'</span>)
-<span class="cf">for</span> msg <span class="op">in</span> cli.logs(container<span class="op">=</span>service_name, stream<span class="op">=</span><span class="va">True</span>, stdout<span class="op">=</span><span class="va">True</span>, stderr<span class="op">=</span><span class="va">True</span>):
-    <span class="bu">print</span>(msg, end<span class="op">=</span><span class="st">&quot;&quot;</span>)
-
-<span class="co"># could also include some signal handler to catch nomad stop or ctrl-c and</span>
-<span class="co"># stop/rm the running container</span>
-<span class="co"># that would look something like:</span>
-<span class="co"># define a signal handler that will gracefully stop the docker container when</span>
-<span class="co"># the user (or nomad/etc) send in a SIGINT. Do not RM the container, keep logs</span>
-<span class="co">#import signal</span>
-<span class="co">#def cleanup_docker(signal, frame):</span>
-<span class="co">#    '''</span>
-<span class="co">#    stop/rm the named container so it is not left lingering</span>
-<span class="co">#    '''</span>
-<span class="co">#    print &quot;\nSIGINT received, initiating graceful shutdown&quot;</span>
-<span class="co">#    try: cli.stop(c['name'])</span>
-<span class="co">#    except Exception as e: print('stopping container failed'); print(e)</span>
-<span class="co">#    sys.exit(0)</span>
-<span class="co">#</span>
-<span class="co">## register that handler</span>
-<span class="co">#signal.signal(signal.SIGINT, cleanup_docker)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="co">#!/usr/bin/env python</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a><span class="co">'''</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="co">This is roughly equivalent to..</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="co">    docker pull postgres:9.5</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="co">    docker stop postgres</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="co">    docker rm postgres</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="co">    docker create --name=postgres                     \</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="co">                  -p $NOMAD_IP_db:5432:$NOMAD_PORT_db \</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="co">                  -v $PGDATA:$PGDATA                  \</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="co">                  --net=host postgres:9.5</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true"></a><span class="co">    docker start postgres</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a><span class="co">    docker logs -f postgres</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a><span class="al">NOTE</span><span class="co">: the code here is (intentionally) simple in an</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a><span class="co">effort to demonstrate the method, YMMV.</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true"></a><span class="co">'''</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true"></a><span class="im">from</span> __future__ <span class="im">import</span> print_function</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true"></a><span class="im">import</span> os</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true"></a><span class="im">import</span> sys</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true"></a><span class="im">from</span> exceptions <span class="im">import</span> <span class="pp">Exception</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true"></a><span class="co"># docker client boilerplate</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true"></a><span class="im">from</span> docker <span class="im">import</span> Client</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true"></a>cli <span class="op">=</span> Client(base_url<span class="op">=</span><span class="st">'unix://var/run/docker.sock'</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true"></a>cli.containers()</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true"></a><span class="co"># specify the network mode, port bindings, and volume mounts.</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true"></a><span class="co"># this is how the docker python client wants these parameters</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true"></a>port    <span class="op">=</span> os.environ[<span class="st">'NOMAD_PORT_db'</span>]</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true"></a>ip      <span class="op">=</span> os.environ[<span class="st">'NOMAD_IP_db'</span>]</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true"></a>workdir <span class="op">=</span> os.environ[<span class="st">'PGDATA'</span>]</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true"></a>host_config <span class="op">=</span> cli.create_host_config(port_bindings<span class="op">=</span>{<span class="st">'5432'</span>: (ip,port)},</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true"></a>                                     network_mode<span class="op">=</span><span class="st">'host'</span>,</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true"></a>                                     binds<span class="op">=</span>[(<span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (workdir, workdir))])</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true"></a><span class="co"># scrub env vars, could also pass in the env in its entirety</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true"></a>env <span class="op">=</span> {<span class="st">'PGDATA'</span>: workdir}</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true"></a>service_name <span class="op">=</span> <span class="st">'postgres'</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true"></a>docker_repo  <span class="op">=</span> <span class="st">'postgres'</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true"></a>docker_tag   <span class="op">=</span> <span class="st">'9.5'</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true"></a>image <span class="op">=</span> <span class="st">'</span><span class="sc">%s</span><span class="st">:</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> (docker_repo, docker_tag)</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: attempt to pull </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> image)</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true"></a><span class="cf">try</span>: cli.pull(repository<span class="op">=</span>docker_repo, tag<span class="op">=</span>docker_tag, stream<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true"></a><span class="co"># attempt graceful exit with helpful error message if the pull fails</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true"></a><span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e: <span class="bu">print</span>(e)<span class="op">;</span> sys.exit()</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: attempt to stop a running container/instance, if it exists'</span>)</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true"></a><span class="cf">try</span>: cli.stop(service_name)</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true"></a><span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip stop, running container not found'</span>)</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: attempt to remove an existing container, if it exists'</span>)</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true"></a><span class="cf">try</span>: cli.remove_container(container<span class="op">=</span>service_name, force<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true"></a><span class="cf">except</span>: <span class="bu">print</span>(<span class="st">'wrapper: skip rm, existing/old container not found'</span>)</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: attempt to create a new container..'</span>)</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true"></a>container <span class="op">=</span> cli.create_container(image<span class="op">=</span>image, detach<span class="op">=</span><span class="va">True</span>, name<span class="op">=</span>service_name,</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true"></a>                                 working_dir<span class="op">=</span>workdir, ports<span class="op">=</span>[port], environment<span class="op">=</span>env,</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true"></a>                                 host_config<span class="op">=</span>host_config)</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: created </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container)</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true"></a><span class="bu">id</span><span class="op">=</span>container.get(<span class="st">'Id'</span>)</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: attempt to start that container (</span><span class="sc">%s</span><span class="st">)'</span> <span class="op">%</span> <span class="bu">id</span>)</span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true"></a>cli.start(container<span class="op">=</span><span class="bu">id</span>)</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">'wrapper: retrieve and print stdout/err...'</span>)</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true"></a><span class="cf">for</span> msg <span class="kw">in</span> cli.logs(container<span class="op">=</span>service_name, stream<span class="op">=</span><span class="va">True</span>, stdout<span class="op">=</span><span class="va">True</span>, stderr<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true"></a>    <span class="bu">print</span>(msg, end<span class="op">=</span><span class="st">&quot;&quot;</span>)</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true"></a><span class="co"># could also include some signal handler to catch nomad stop or ctrl-c and</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true"></a><span class="co"># stop/rm the running container</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true"></a><span class="co"># that would look something like:</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true"></a><span class="co"># define a signal handler that will gracefully stop the docker container when</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true"></a><span class="co"># the user (or nomad/etc) send in a SIGINT. Do not RM the container, keep logs</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true"></a><span class="co">#import signal</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true"></a><span class="co">#def cleanup_docker(signal, frame):</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true"></a><span class="co">#    '''</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true"></a><span class="co">#    stop/rm the named container so it is not left lingering</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true"></a><span class="co">#    '''</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true"></a><span class="co">#    print &quot;\nSIGINT received, initiating graceful shutdown&quot;</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true"></a><span class="co">#    try: cli.stop(c['name'])</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true"></a><span class="co">#    except Exception as e: print('stopping container failed'); print(e)</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true"></a><span class="co">#    sys.exit(0)</span></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true"></a><span class="co">#</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true"></a><span class="co">## register that handler</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true"></a><span class="co">#signal.signal(signal.SIGINT, cleanup_docker)</span></span></code></pre></div>
 <h3 id="example-job">Example Job</h3>
 <pre><code>job &quot;postgres&quot; {
     group &quot;postgres&quot; {
@@ -184,6 +187,10 @@ cli.start(container<span class="op">=</span><span class="bu">id</span>)
 }</code></pre>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

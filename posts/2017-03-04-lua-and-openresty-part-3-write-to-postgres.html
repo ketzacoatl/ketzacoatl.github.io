@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 3: Writing Data to Postgres</title>
+        <title>Intro to Lua and Openresty, Part 3: Writing Data to Postgres - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -55,13 +56,13 @@
 </ul>
 <p>There is the <code>postgres:alpine</code> variant of the canonical image, we’ll use that as our base. The postgres image will auto-run <code>*.sh</code> or <code>*.sql</code> that are in the <code>/init</code> path in the image - we’ll rely on this to auto-create the tables (and in future exercises, to load initial data fixtures) for us. The <code>postgres</code> images will use <code>POSTGRES_PASSWORD</code>, <code>POSTGRES_DB</code>, and similar environment variables.</p>
 <p>Given that, our <code>Dockerfile</code> will be fairly simple:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
-<span class="kw">ENV</span>  POSTGRES_PASSWORD password
-<span class="kw">ENV</span>  POSTGRES_DB       lua-app
-<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/
-<span class="kw">RUN</span>  echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="kw">FROM</span> postgres:alpine</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_PASSWORD password</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_DB       lua-app</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a><span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a><span class="kw">RUN</span>  echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</span></code></pre></div>
 <p>The webapp in this example only needs a single, empty table, so <code>init.sql</code> is also very simple:</p>
-<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode sql"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</span></code></pre></div>
 <p>We can confirm this works by building and running the <code>db</code> image, then peeking into the database to confirm we have a <code>posts</code> table:</p>
 <pre><code>ᐅ docker exec -it db psql -U postgres -d lua-app
 psql (9.6.2)
@@ -116,13 +117,13 @@ http {
     }
 }</code></pre>
 <p>We will also need to install the <code>pgmoon</code> module. As we did with the <code>lua-resty-reqargs</code> module in the previous example, this goes into our <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">EXPOSE</span> 8000
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
-<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
-<span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">EXPOSE</span> 8000</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true"></a><span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true"></a><span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</span></code></pre></div>
 <hr />
 <h3 id="build-and-run">Build and Run!</h3>
 <p>Here are the updates made to the <code>Makefile</code>:</p>
@@ -341,9 +342,9 @@ PING db (172.17.0.2): 56 data bytes
 --- db ping statistics ---
 2 packets transmitted, 2 packets received, 0% packet loss
 round-trip min/avg/max = 0.098/0.118/0.139 ms</code></pre>
-<p>OK, so the container linking works as expected, but lua errors with: <code>no resolver defined to resolve &quot;db&quot;</code>. If I use the IP of the linked container, the connection works as expected. This is likely to be an issue with the (super minimal) alpine base image I am using (need some dns utils or some such).</p>
+<p>OK, so the container linking works as expected, but lua errors with: <code>no resolver defined to resolve "db"</code>. If I use the IP of the linked container, the connection works as expected. This is likely to be an issue with the (super minimal) alpine base image I am using (need some dns utils or some such).</p>
 <p>With some research, I found that <code>/etc/nsswitch.conf</code> is missing in alpine, and glibc apps may skip consulting <code>/etc/hosts</code> (where <code>db</code> is defined when using <code>--link</code> in docker). Theoretically, adding <code>hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4</code> to <code>/etc/nsswitch.conf</code> will tell glibc apps to use <code>/etc/hosts</code> first. We can then add this to the docker image build (<code>Dockerfile</code>), so it is ready to go at runtime:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true"></a><span class="kw">RUN</span> echo <span class="st">'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4'</span> &gt; /etc/nsswitch.conf</span></code></pre></div>
 <p>Here are some helpful resources on this topic:</p>
 <ul>
 <li>http://unix.stackexchange.com/questions/52954/nsswitch-conf-versus-host-conf</li>
@@ -358,6 +359,10 @@ round-trip min/avg/max = 0.098/0.118/0.139 ms</code></pre>
 <h3 id="continue-on-to-part-4-using-envvars3">Continue on to Part 4, <a href="2017-03-04-lua-and-openresty-part-4-using-envvars.html">Using Envvars</a></h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

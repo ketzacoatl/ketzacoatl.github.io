@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 6: Data Processing Sink</title>
+        <title>Intro to Lua and Openresty, Part 6: Data Processing Sink - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -51,15 +52,15 @@
 </ul>
 <h3 id="testing-hiredis">Testing <code>hiredis</code>…</h3>
 <p>Let’s test the connection, we’ll go to <code>examples/07-redis-data-sink/tests/</code> for this. Here is our code:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-<span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
-<span class="kw">local</span> client<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
-<span class="kw">if</span> <span class="kw">not</span> client <span class="kw">then</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
-  <span class="kw">return</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a><span class="kw">local</span> redis  <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a><span class="kw">local</span> client<span class="op">,</span> err<span class="op">,</span> err_code <span class="op">=</span> hiredis<span class="op">.</span>connect<span class="op">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="op">,</span> <span class="dv">6379</span><span class="op">)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a><span class="cf">if</span> <span class="kw">not</span> client <span class="cf">then</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="op">)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;error: &quot;</span> <span class="op">..</span> err<span class="op">)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;code:  &quot;</span> <span class="op">..</span> err_code<span class="op">)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true"></a>  <span class="cf">return</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <p>Here’s our <code>Makefile</code>:</p>
 <pre><code>build:
         docker build --tag=ping-redis:7 --rm=true .
@@ -84,12 +85,12 @@ clean:
         docker rm   redis       || true
         docker rm   ping-redis  || true</code></pre>
 <p>Here’s our <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
-<span class="kw">ADD</span> *.lua /src/
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="kw">ADD</span> *.lua /src/</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /bin/sh</span></code></pre></div>
 <p>Build that image:</p>
 <pre><code>ᐅ make build
 docker build --tag=ping-redis:7 --rm=true .
@@ -132,8 +133,10 @@ true</code></pre>
 <li>left push a few values to a list (3 or 4)</li>
 <li>use <code>RPOPLPUSH</code> to pop one value from the <code>enqueued</code> list, and push that value to a <code>processing</code> list</li>
 <li>do something with that value (print it)</li>
-<li>use <code>LREM</code> to remove the item from the processing list.</li>
+<li>use <code>LREM</code> to remove the item from the processing list.
+<ul>
 <li>this should work fine for basic situations, but would need more thorough testing to guard against race conditions across multiple workers (though it ought to be ok if the keys are unique)</li>
+</ul></li>
 </ul>
 <p>The push/pop workflow looks like:</p>
 <pre><code> +------+
@@ -162,89 +165,89 @@ true</code></pre>
 </ul>
 <p>Note that it’s also worth understanding the difference between <code>RPOPLPUSH</code> and <code>BRPOPLPUSH</code> (the blocking variant).</p>
 <p>The code for our test is simple but a tad verbose:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
-<span class="co">-- return redis client, or fail and exit</span>
-<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
-  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
-  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
-    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
-  <span class="kw">else</span>
-    <span class="kw">return</span> rc
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">-- send a PING to redis and print True/False for PONG as result</span>
-ping_pong <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;PONG:&quot;</span><span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span>client:command<span class="ot">(</span><span class="st">&quot;PING&quot;</span><span class="ot">)</span> <span class="ot">==</span> hiredis<span class="ot">.</span>status<span class="ot">.</span>PONG<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- push a few test keys simulating a writing producer</span>
-push_keys <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">)</span>
-  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;a&quot;</span><span class="ot">)</span>
-  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;b&quot;</span><span class="ot">)</span>
-  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;c&quot;</span><span class="ot">)</span>
-  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;d&quot;</span><span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- return the lua table that is the redis list, in full</span>
-get_list <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>client<span class="ot">,</span> list<span class="ot">)</span>
-  <span class="kw">return</span> client:command<span class="ot">(</span><span class="st">&quot;LRANGE&quot;</span><span class="ot">,</span> list<span class="ot">,</span> <span class="dv">0</span><span class="ot">,</span> <span class="ot">-</span><span class="dv">1</span><span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- for the lua table t, print the key/value pairs (one level)</span>
-print_table <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
-  <span class="kw">for</span> k<span class="ot">,</span>v <span class="kw">in</span> <span class="fu">pairs</span><span class="ot">(</span>t<span class="ot">)</span> <span class="kw">do</span>
-    <span class="fu">print</span><span class="ot">(</span>k<span class="ot">,</span> v<span class="ot">)</span>
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">-- wrap redis RPOPLPUSH</span>
-rpoplpush <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- wrap redis LREM</span>
-drop <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>tbl<span class="ot">,</span> key<span class="ot">)</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> tbl<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> key<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="ot">)</span>
-ping_pong<span class="ot">(</span>rc<span class="ot">)</span>
-<span class="co">-- push some keys to the q</span>
-push_keys<span class="ot">(</span>rc<span class="ot">)</span>
-<span class="co">-- print out those keys</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;LRANGE enqueued:&quot;</span><span class="ot">)</span>
-q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
-print_table<span class="ot">(</span>q<span class="ot">)</span>
-<span class="co">-- RPOPLPUSH one key over to processing</span>
-pop <span class="ot">=</span> rpoplpush<span class="ot">(</span><span class="st">&quot;enqueued&quot;</span><span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;pop the queue, now processing: &quot;</span> <span class="ot">..</span> pop<span class="ot">)</span>
-<span class="co">-- retrieve and print the two lists as they are now..</span>
-q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;queue is now:&quot;</span><span class="ot">)</span>
-print_table<span class="ot">(</span>q<span class="ot">)</span>
-<span class="co">--</span>
-p <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;processing is now:&quot;</span><span class="ot">)</span>
-print_table<span class="ot">(</span>p<span class="ot">)</span>
-<span class="co">-- ok, we're done with the key, let's drop it</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;done with:&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>pop<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;drop from processing..&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>drop<span class="ot">(</span><span class="st">&quot;processing&quot;</span><span class="ot">,</span> pop<span class="ot">))</span>
-<span class="co">-- retrieve and print the two lists as they are now..</span>
-q <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;enqueued&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;queue:&quot;</span><span class="ot">)</span>
-print_table<span class="ot">(</span>q<span class="ot">)</span>
-<span class="co">--</span>
-p <span class="ot">=</span> get_list<span class="ot">(</span>rc<span class="ot">,</span> <span class="st">&quot;processing&quot;</span><span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">&quot;processing:&quot;</span><span class="ot">)</span>
-print_table<span class="ot">(</span>p<span class="ot">)</span>
-<span class="co">-- goodbye redis</span>
-rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a><span class="kw">local</span> redis  <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a><span class="co">-- return redis client, or fail and exit</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a><span class="fu">connect</span> <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>host<span class="op">)</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a>  <span class="kw">local</span> rc<span class="op">,</span> err<span class="op">,</span> err_code <span class="op">=</span> hiredis<span class="op">.</span>connect<span class="op">(</span>host<span class="op">,</span> <span class="dv">6379</span><span class="op">)</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>  <span class="cf">if</span> <span class="kw">not</span> rc <span class="cf">then</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="op">)</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;error: &quot;</span> <span class="op">..</span> err<span class="op">)</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;code:  &quot;</span> <span class="op">..</span> err_code<span class="op">)</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>    <span class="fu">os.exit</span><span class="op">(</span><span class="dv">1</span><span class="op">)</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true"></a>    <span class="cf">return</span> rc</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true"></a><span class="co">-- send a PING to redis and print True/False for PONG as result</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true"></a>ping_pong <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>client<span class="op">)</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;PONG:&quot;</span><span class="op">)</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>client<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;PING&quot;</span><span class="op">)</span> <span class="op">==</span> hiredis<span class="op">.</span>status<span class="op">.</span><span class="cn">PONG</span><span class="op">)</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true"></a><span class="co">-- push a few test keys simulating a writing producer</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true"></a>push_keys <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>client<span class="op">)</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true"></a>  rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LPUSH&quot;</span><span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">,</span> <span class="st">&quot;a&quot;</span><span class="op">)</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true"></a>  rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LPUSH&quot;</span><span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">,</span> <span class="st">&quot;b&quot;</span><span class="op">)</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true"></a>  rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LPUSH&quot;</span><span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">,</span> <span class="st">&quot;c&quot;</span><span class="op">)</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true"></a>  rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LPUSH&quot;</span><span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">,</span> <span class="st">&quot;d&quot;</span><span class="op">)</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true"></a><span class="co">-- return the lua table that is the redis list, in full</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true"></a>get_list <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>client<span class="op">,</span> list<span class="op">)</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true"></a>  <span class="cf">return</span> client<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LRANGE&quot;</span><span class="op">,</span> list<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true"></a><span class="co">-- for the lua table t, print the key/value pairs (one level)</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true"></a>print_table <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>t<span class="op">)</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true"></a>  <span class="cf">for</span> k<span class="op">,</span>v <span class="kw">in</span> <span class="fu">pairs</span><span class="op">(</span>t<span class="op">)</span> <span class="cf">do</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span>k<span class="op">,</span> v<span class="op">)</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true"></a><span class="co">-- wrap redis RPOPLPUSH</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true"></a>rpoplpush <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="op">,</span> q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true"></a><span class="co">-- wrap redis LREM</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true"></a>drop <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>tbl<span class="op">,</span> key<span class="op">)</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LREM&quot;</span><span class="op">,</span> tbl<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> key<span class="op">)</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true"></a>rc <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="op">)</span></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true"></a>ping_pong<span class="op">(</span>rc<span class="op">)</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true"></a><span class="co">-- push some keys to the q</span></span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true"></a>push_keys<span class="op">(</span>rc<span class="op">)</span></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true"></a><span class="co">-- print out those keys</span></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;LRANGE enqueued:&quot;</span><span class="op">)</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true"></a>q <span class="op">=</span> get_list<span class="op">(</span>rc<span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">)</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true"></a>print_table<span class="op">(</span>q<span class="op">)</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true"></a><span class="co">-- RPOPLPUSH one key over to processing</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true"></a>pop <span class="op">=</span> rpoplpush<span class="op">(</span><span class="st">&quot;enqueued&quot;</span><span class="op">,</span> <span class="st">&quot;processing&quot;</span><span class="op">)</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;pop the queue, now processing: &quot;</span> <span class="op">..</span> pop<span class="op">)</span></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true"></a><span class="co">-- retrieve and print the two lists as they are now..</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true"></a>q <span class="op">=</span> get_list<span class="op">(</span>rc<span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">)</span></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;queue is now:&quot;</span><span class="op">)</span></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true"></a>print_table<span class="op">(</span>q<span class="op">)</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true"></a>p <span class="op">=</span> get_list<span class="op">(</span>rc<span class="op">,</span> <span class="st">&quot;processing&quot;</span><span class="op">)</span></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;processing is now:&quot;</span><span class="op">)</span></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true"></a>print_table<span class="op">(</span>p<span class="op">)</span></span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true"></a><span class="co">-- ok, we're done with the key, let's drop it</span></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;done with:&quot;</span><span class="op">)</span></span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>pop<span class="op">)</span></span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;drop from processing..&quot;</span><span class="op">)</span></span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>drop<span class="op">(</span><span class="st">&quot;processing&quot;</span><span class="op">,</span> pop<span class="op">))</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true"></a><span class="co">-- retrieve and print the two lists as they are now..</span></span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true"></a>q <span class="op">=</span> get_list<span class="op">(</span>rc<span class="op">,</span> <span class="st">&quot;enqueued&quot;</span><span class="op">)</span></span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;queue:&quot;</span><span class="op">)</span></span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true"></a>print_table<span class="op">(</span>q<span class="op">)</span></span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true"></a>p <span class="op">=</span> get_list<span class="op">(</span>rc<span class="op">,</span> <span class="st">&quot;processing&quot;</span><span class="op">)</span></span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">&quot;processing:&quot;</span><span class="op">)</span></span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true"></a>print_table<span class="op">(</span>p<span class="op">)</span></span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true"></a><span class="co">-- goodbye redis</span></span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true"></a>rc<span class="op">:</span><span class="fu">close</span><span class="op">()</span></span></code></pre></div>
 <p>This is our first time defining functions, they are in the form:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">foo <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>args<span class="ot">)</span>
-  stmt
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a>foo <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>args<span class="op">)</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>  stmt</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true"></a><span class="kw">end</span></span></code></pre></div>
 <p>Here is our <code>Makefile</code>:</p>
 <pre><code>build:
         docker build --tag=push-pop:7 --rm=true .
@@ -266,12 +269,12 @@ clean:
         docker rm   redis     || true
         docker rm   push-pop  || true</code></pre>
 <p>Here is our <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
-<span class="kw">ADD</span> *.lua /src/
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a><span class="kw">ADD</span> *.lua /src/</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /bin/sh</span></code></pre></div>
 <p>Let’s build the image:</p>
 <pre><code>ᐅ make build
 docker build --tag=push-pop:7 --rm=true .
@@ -344,14 +347,14 @@ processing:</code></pre>
 <li>It should be easy to load new values onto the queue</li>
 </ul>
 <p>Let’s start with the <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">ADD</span> *.lua /src/
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true"></a><span class="kw">ENV</span> REDIS_HOST 127.0.0.1</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true"></a><span class="kw">ADD</span> *.lua /src/</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /bin/sh</span></code></pre></div>
 <p>The <code>Makefile</code>:</p>
 <pre><code>build:
         docker build --tag=sink:7 --rm=true .
@@ -388,91 +391,91 @@ app-shell:
 redis-shell:
         docker exec -it redis redis-cli</code></pre>
 <p>Here is our <code>producer.lua</code>:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-<span class="kw">local</span> redis <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
-<span class="co">-- names for our lists in redis</span>
-<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
-<span class="co">-- return redis client, or fail and exit</span>
-<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
-  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
-  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
-    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
-  <span class="kw">else</span>
-    <span class="kw">return</span> rc
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">-- push a key to the queue</span>
-enqueue <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>key<span class="ot">)</span>
-  rc:command<span class="ot">(</span><span class="st">&quot;LPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> key<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
-<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
-<span class="kw">for</span> l<span class="ot">=</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">100000</span>
-<span class="kw">do</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="ot">..</span> l<span class="ot">)</span>
-  date_fmt <span class="ot">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span>
-  enqueue<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>timestamp <span class="ot">=</span> <span class="fu">os.date</span><span class="ot">(</span>date_fmt<span class="ot">),</span> msg <span class="ot">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="ot">..</span> l<span class="ot">}))</span>
-  l <span class="ot">=</span> l <span class="ot">+</span> <span class="dv">1</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true"></a><span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true"></a><span class="kw">local</span> redis <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true"></a><span class="co">-- names for our lists in redis</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true"></a><span class="kw">local</span> q     <span class="op">=</span> <span class="st">&quot;enqueued&quot;</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true"></a><span class="co">-- return redis client, or fail and exit</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true"></a><span class="fu">connect</span> <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>host<span class="op">)</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true"></a>  <span class="kw">local</span> rc<span class="op">,</span> err<span class="op">,</span> err_code <span class="op">=</span> hiredis<span class="op">.</span>connect<span class="op">(</span>host<span class="op">,</span> <span class="dv">6379</span><span class="op">)</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true"></a>  <span class="cf">if</span> <span class="kw">not</span> rc <span class="cf">then</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="op">)</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;error: &quot;</span> <span class="op">..</span> err<span class="op">)</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;code:  &quot;</span> <span class="op">..</span> err_code<span class="op">)</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true"></a>    <span class="fu">os.exit</span><span class="op">(</span><span class="dv">1</span><span class="op">)</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true"></a>    <span class="cf">return</span> rc</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true"></a><span class="co">-- push a key to the queue</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true"></a>enqueue <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>key<span class="op">)</span></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true"></a>  rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LPUSH&quot;</span><span class="op">,</span> q<span class="op">,</span> key<span class="op">)</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true"></a>rc <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span><span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="op">))</span></span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true"></a><span class="fu">assert</span><span class="op">(</span>rc<span class="op">)</span></span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true"></a><span class="cf">for</span> l<span class="op">=</span><span class="dv">1</span><span class="op">,</span> <span class="dv">100000</span></span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true"></a><span class="cf">do</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="op">..</span> l<span class="op">)</span></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true"></a>  date_fmt <span class="op">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span></span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true"></a>  enqueue<span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>timestamp <span class="op">=</span> <span class="fu">os.date</span><span class="op">(</span>date_fmt<span class="op">),</span> msg <span class="op">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="op">..</span> l<span class="op">}))</span></span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true"></a>  l <span class="op">=</span> l <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <p>..and the <code>worker.lua</code>:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-<span class="co">-- install lua-hiredis</span>
-<span class="kw">local</span> redis <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
-<span class="co">-- names for our lists in redis</span>
-<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
-<span class="kw">local</span> p     <span class="ot">=</span> <span class="st">&quot;processing&quot;</span>
-<span class="kw">local</span> delay <span class="ot">=</span> <span class="dv">0.001</span>
-<span class="co">-- return redis client, or fail and exit</span>
-<span class="fu">connect</span> <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
-  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
-  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
-    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
-  <span class="kw">else</span>
-    <span class="kw">return</span> rc
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span>
-get_work <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- &quot;do&quot; the work</span>
-process <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span>i<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- work is done, drop it from the processing table</span>
-dondrop <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> p<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> i<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- pause for a moment..</span>
-<span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span>
-sleep <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
-  <span class="fu">os.execute</span><span class="ot">(</span><span class="st">&quot;sleep &quot;</span> <span class="ot">..</span> <span class="fu">tonumber</span><span class="ot">(</span>t<span class="ot">))</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-rc <span class="ot">=</span> <span class="fu">connect</span><span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
-<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
-<span class="co">-- loop doing work until you can't</span>
-<span class="kw">while</span> <span class="kw">true</span> <span class="kw">do</span>
-  item<span class="ot">,</span> err<span class="ot">,</span> code <span class="ot">=</span> get_work<span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
-  <span class="kw">if</span> item<span class="ot">.</span>name <span class="ot">==</span> <span class="st">&quot;NIL&quot;</span> <span class="kw">then</span>
-    <span class="co">-- pass</span>
-  <span class="kw">else</span>
-    <span class="co">--print(&quot;got item!&quot;)</span>
-    process<span class="ot">(</span>item<span class="ot">)</span>
-    dondrop<span class="ot">(</span>item<span class="ot">)</span>
-    sleep<span class="ot">(</span>delay<span class="ot">)</span>
-  <span class="kw">end</span>
-<span class="kw">end</span>
-rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true"></a><span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true"></a><span class="co">-- install lua-hiredis</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true"></a><span class="kw">local</span> redis <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true"></a><span class="co">-- names for our lists in redis</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true"></a><span class="kw">local</span> q     <span class="op">=</span> <span class="st">&quot;enqueued&quot;</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true"></a><span class="kw">local</span> p     <span class="op">=</span> <span class="st">&quot;processing&quot;</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true"></a><span class="kw">local</span> delay <span class="op">=</span> <span class="dv">0.001</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true"></a><span class="co">-- return redis client, or fail and exit</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true"></a><span class="fu">connect</span> <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>host<span class="op">)</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true"></a>  <span class="kw">local</span> rc<span class="op">,</span> err<span class="op">,</span> err_code <span class="op">=</span> hiredis<span class="op">.</span>connect<span class="op">(</span>host<span class="op">,</span> <span class="dv">6379</span><span class="op">)</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true"></a>  <span class="cf">if</span> <span class="kw">not</span> rc <span class="cf">then</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="op">)</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;error: &quot;</span> <span class="op">..</span> err<span class="op">)</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;code:  &quot;</span> <span class="op">..</span> err_code<span class="op">)</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true"></a>    <span class="fu">os.exit</span><span class="op">(</span><span class="dv">1</span><span class="op">)</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true"></a>    <span class="cf">return</span> rc</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true"></a><span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true"></a>get_work <span class="op">=</span> <span class="kw">function</span><span class="op">()</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="op">,</span> q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true"></a><span class="co">-- &quot;do&quot; the work</span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true"></a>process <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true"></a><span class="co">-- work is done, drop it from the processing table</span></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true"></a>dondrop <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LREM&quot;</span><span class="op">,</span> p<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> i<span class="op">)</span></span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true"></a><span class="co">-- pause for a moment..</span></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true"></a><span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true"></a>sleep <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>t<span class="op">)</span></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true"></a>  <span class="fu">os.execute</span><span class="op">(</span><span class="st">&quot;sleep &quot;</span> <span class="op">..</span> <span class="fu">tonumber</span><span class="op">(</span>t<span class="op">))</span></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true"></a>rc <span class="op">=</span> <span class="fu">connect</span><span class="op">(</span><span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="op">))</span></span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true"></a><span class="fu">assert</span><span class="op">(</span>rc<span class="op">)</span></span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true"></a><span class="co">-- loop doing work until you can't</span></span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true"></a><span class="cf">while</span> <span class="kw">true</span> <span class="cf">do</span></span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true"></a>  item<span class="op">,</span> err<span class="op">,</span> code <span class="op">=</span> get_work<span class="op">(</span>q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true"></a>  <span class="cf">if</span> item<span class="op">.</span>name <span class="op">==</span> <span class="st">&quot;NIL&quot;</span> <span class="cf">then</span></span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true"></a>    <span class="co">-- pass</span></span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true"></a>    <span class="co">--print(&quot;got item!&quot;)</span></span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true"></a>    process<span class="op">(</span>item<span class="op">)</span></span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true"></a>    dondrop<span class="op">(</span>item<span class="op">)</span></span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true"></a>    sleep<span class="op">(</span>delay<span class="op">)</span></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true"></a><span class="cf">end</span></span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true"></a>rc<span class="op">:</span><span class="fu">close</span><span class="op">()</span></span></code></pre></div>
 <p>Let’s build the docker image:</p>
 <pre><code>ᐅ make build
 docker build --tag=sink:7 --rm=true .
@@ -536,6 +539,10 @@ enqueue: 100000</code></pre>
 <h3 id="continue-on-to-another-interlude-exploring-package.path3">Continue on to (another) interlude, <a href="2017-03-07-lua-and-openresty-interlude-exploring-luas-package-path.html">Exploring <code>package.path</code></a></h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

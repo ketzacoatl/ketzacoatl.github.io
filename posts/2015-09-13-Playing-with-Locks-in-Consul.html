@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Playing with Locks in Consul</title>
+        <title>Playing with Locks in Consul - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -30,56 +31,60 @@
 </div>
 
 <p>Consul is a great piece of software, and I love building HA services with it at the heart of the distributed system. One of Consul’s features is a distributed locking mechanism, and I wanted to learn a little more about it. I also wanted to experiment with simple methods for running a one-time action, or a single instance of a service in a distributed system - potential solutions to the famous challenge: “<em>who guards the guards?</em>”</p>
-<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="im">import</span> sys
-<span class="im">from</span> time <span class="im">import</span> sleep
-
-<span class="im">import</span> consul
-<span class="im">import</span> consul_lock
-<span class="im">from</span> docker <span class="im">import</span> Client
-
-<span class="co">'''</span>
-<span class="co">This is a PoC which uses consul's locking mechanism to ensure only</span>
-<span class="co">one instance of the named docker container is running. Requires:</span>
-<span class="co">  a) pip install python-consul consul-lock</span>
-<span class="co">  b) docker create --name my_container my/app</span>
-
-<span class="co">try it: python only-one.py container_name token</span>
-
-<span class="co">'''</span>
-pause <span class="op">=</span> <span class="dv">3</span>
-container_name <span class="op">=</span> sys.argv[<span class="dv">1</span>]
-token <span class="op">=</span> sys.argv[<span class="dv">2</span>]
-cli <span class="op">=</span> Client(base_url<span class="op">=</span><span class="st">'unix://var/run/docker.sock'</span>)
-
-consul_client <span class="op">=</span> consul.Consul(token<span class="op">=</span>token)
-consul_lock.defaults.consul_client <span class="op">=</span> consul_client
-
-<span class="bu">print</span> <span class="st">'starting up!'</span>
-<span class="cf">while</span> <span class="va">True</span>:
-    ephemeral_lock <span class="op">=</span> consul_lock.EphemeralLock((<span class="st">'only-one/</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container_name),
-                                               lock_timeout_seconds<span class="op">=</span><span class="dv">3600</span>,
-                                               acquire_timeout_ms<span class="op">=</span><span class="dv">500</span>)
-    <span class="cf">try</span>:
-        <span class="bu">print</span> <span class="st">'acquiring distributed lock in consul..'</span>
-        was_acquired <span class="op">=</span> ephemeral_lock.acquire(fail_hard<span class="op">=</span><span class="va">False</span>)
-        <span class="cf">if</span> was_acquired:
-            <span class="co"># do dangerous stuff here</span>
-            <span class="bu">print</span> <span class="st">'lock acquired!'</span>
-            <span class="bu">print</span> (<span class="st">'starting container </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container_name)
-            response <span class="op">=</span> cli.start(container<span class="op">=</span>container_name)
-            <span class="bu">print</span>(response)
-            <span class="bu">print</span> <span class="st">'will now wait/block until the container exits..'</span>
-            cli.wait(container<span class="op">=</span>container_name)
-        <span class="cf">else</span>:
-            <span class="bu">print</span> <span class="st">'someone else has the lock :\ try again later'</span>
-    <span class="cf">finally</span>:
-        <span class="bu">print</span> <span class="st">'be sure there is no lock in consul..'</span>
-        ephemeral_lock.release()
-    <span class="bu">print</span> (<span class="st">'sleeping for </span><span class="sc">%d</span><span class="st"> seconds'</span> <span class="op">%</span> pause)
-    sleep(pause)</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="im">import</span> sys</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a><span class="im">from</span> time <span class="im">import</span> sleep</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a><span class="im">import</span> consul</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a><span class="im">import</span> consul_lock</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a><span class="im">from</span> docker <span class="im">import</span> Client</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true"></a><span class="co">'''</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true"></a><span class="co">This is a PoC which uses consul's locking mechanism to ensure only</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true"></a><span class="co">one instance of the named docker container is running. Requires:</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true"></a><span class="co">  a) pip install python-consul consul-lock</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true"></a><span class="co">  b) docker create --name my_container my/app</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true"></a><span class="co">try it: python only-one.py container_name token</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true"></a><span class="co">'''</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true"></a>pause <span class="op">=</span> <span class="dv">3</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true"></a>container_name <span class="op">=</span> sys.argv[<span class="dv">1</span>]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true"></a>token <span class="op">=</span> sys.argv[<span class="dv">2</span>]</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true"></a>cli <span class="op">=</span> Client(base_url<span class="op">=</span><span class="st">'unix://var/run/docker.sock'</span>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true"></a>consul_client <span class="op">=</span> consul.Consul(token<span class="op">=</span>token)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true"></a>consul_lock.defaults.consul_client <span class="op">=</span> consul_client</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true"></a><span class="bu">print</span> <span class="st">'starting up!'</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true"></a><span class="cf">while</span> <span class="va">True</span>:</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true"></a>    ephemeral_lock <span class="op">=</span> consul_lock.EphemeralLock((<span class="st">'only-one/</span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container_name),</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true"></a>                                               lock_timeout_seconds<span class="op">=</span><span class="dv">3600</span>,</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true"></a>                                               acquire_timeout_ms<span class="op">=</span><span class="dv">500</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true"></a>    <span class="cf">try</span>:</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true"></a>        <span class="bu">print</span> <span class="st">'acquiring distributed lock in consul..'</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true"></a>        was_acquired <span class="op">=</span> ephemeral_lock.acquire(fail_hard<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true"></a>        <span class="cf">if</span> was_acquired:</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true"></a>            <span class="co"># do dangerous stuff here</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true"></a>            <span class="bu">print</span> <span class="st">'lock acquired!'</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true"></a>            <span class="bu">print</span> (<span class="st">'starting container </span><span class="sc">%s</span><span class="st">'</span> <span class="op">%</span> container_name)</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true"></a>            response <span class="op">=</span> cli.start(container<span class="op">=</span>container_name)</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true"></a>            <span class="bu">print</span>(response)</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true"></a>            <span class="bu">print</span> <span class="st">'will now wait/block until the container exits..'</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true"></a>            cli.wait(container<span class="op">=</span>container_name)</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true"></a>        <span class="cf">else</span>:</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true"></a>            <span class="bu">print</span> <span class="st">'someone else has the lock :\ try again later'</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true"></a>    <span class="cf">finally</span>:</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true"></a>        <span class="bu">print</span> <span class="st">'be sure there is no lock in consul..'</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true"></a>        ephemeral_lock.release()</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true"></a>    <span class="bu">print</span> (<span class="st">'sleeping for </span><span class="sc">%d</span><span class="st"> seconds'</span> <span class="op">%</span> pause)</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true"></a>    sleep(pause)</span></code></pre></div>
 <p>The original post can be seen in this <a href="https://gist.github.com/ketzacoatl/1a25503445a684e31dbd">gist</a>.</p>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

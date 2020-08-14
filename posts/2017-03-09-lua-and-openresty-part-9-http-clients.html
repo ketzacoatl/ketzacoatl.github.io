@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 9: HTTP clients</title>
+        <title>Intro to Lua and Openresty, Part 9: HTTP clients - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -38,115 +39,115 @@
 <h3 id="get-post">GET / POST</h3>
 <p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/blob/master/examples/10-basic-http-client/">we are here</a>.</p>
 <p>Here is our code:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua">cjson <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;cjson&quot;</span><span class="ot">)</span>
-hc <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;httpclient&quot;</span><span class="ot">).</span>new<span class="ot">()</span>
-resp <span class="ot">=</span> hc:post<span class="ot">(</span><span class="st">'http://127.0.0.1:8000/'</span><span class="ot">,</span>
-               cjson<span class="ot">.</span>encode<span class="ot">({</span> hello <span class="ot">=</span> <span class="st">&quot;world&quot;</span> <span class="ot">}),</span>
-               <span class="ot">{</span>content_type <span class="ot">=</span> <span class="st">'application/json'</span><span class="ot">})</span>
-getr <span class="ot">=</span> hc:get<span class="ot">(</span><span class="st">'http://127.0.0.1:8000/list'</span><span class="ot">)</span>
-<span class="kw">if</span> resp<span class="ot">.</span>code <span class="ot">==</span> <span class="dv">200</span> <span class="kw">then</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;success!&quot;</span><span class="ot">)</span>
-<span class="kw">end</span>
-<span class="fu">print</span><span class="ot">(</span>resp<span class="ot">.</span>body<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>resp<span class="ot">.</span>code<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>resp<span class="ot">.</span>headers<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>resp<span class="ot">.</span>status_line<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>resp<span class="ot">.</span>err<span class="ot">)</span>
-
-<span class="fu">print</span><span class="ot">(</span>getr<span class="ot">.</span>body<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>getr<span class="ot">.</span>code<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>getr<span class="ot">.</span>headers<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>getr<span class="ot">.</span>status_line<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span>getr<span class="ot">.</span>err<span class="ot">)</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a>cjson <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">&quot;cjson&quot;</span><span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a>hc <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">&quot;httpclient&quot;</span><span class="op">).</span>new<span class="op">()</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>resp <span class="op">=</span> hc<span class="op">:</span>post<span class="op">(</span><span class="st">'http://127.0.0.1:8000/'</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>               cjson<span class="op">.</span>encode<span class="op">({</span> hello <span class="op">=</span> <span class="st">&quot;world&quot;</span> <span class="op">}),</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>               <span class="op">{</span>content_type <span class="op">=</span> <span class="st">'application/json'</span><span class="op">})</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a>getr <span class="op">=</span> hc<span class="op">:</span>get<span class="op">(</span><span class="st">'http://127.0.0.1:8000/list'</span><span class="op">)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a><span class="cf">if</span> resp<span class="op">.</span>code <span class="op">==</span> <span class="dv">200</span> <span class="cf">then</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;success!&quot;</span><span class="op">)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true"></a><span class="cf">end</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>resp<span class="op">.</span>body<span class="op">)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>resp<span class="op">.</span>code<span class="op">)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>resp<span class="op">.</span>headers<span class="op">)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>resp<span class="op">.</span>status_line<span class="op">)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>resp<span class="op">.</span>err<span class="op">)</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>getr<span class="op">.</span>body<span class="op">)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>getr<span class="op">.</span>code<span class="op">)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>getr<span class="op">.</span>headers<span class="op">)</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>getr<span class="op">.</span>status_line<span class="op">)</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span>getr<span class="op">.</span>err<span class="op">)</span></span></code></pre></div>
 <p>and our <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">RUN</span> apk add --update openssl-dev git
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasec
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install httpclient
-<span class="kw">ADD</span> get-post.lua /src/get-post.lua
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /usr/local/openresty/luajit/bin/luajit
-<span class="kw">CMD</span> [<span class="st">&quot;get-post.lua&quot;</span>]</code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a><span class="kw">RUN</span> apk add --update openssl-dev git</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasec</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install httpclient</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="kw">ADD</span> get-post.lua /src/get-post.lua</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /usr/local/openresty/luajit/bin/luajit</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="kw">CMD</span> [<span class="st">&quot;get-post.lua&quot;</span>]</span></code></pre></div>
 <h3 id="batch-post">Batch POST</h3>
 <p>If you are following along in the code, <a href="https://github.com/ketzacoatl/explore-openresty/tree/master/examples/11-batch-submit-posts">we are here</a>.</p>
 <p>We want to generate “load” on our system. Our system takes a message via POST request and “processes” it. Let’s write a script to generate POST requests in a loop:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">'cjson'</span><span class="ot">)</span>
-<span class="kw">local</span> cli   <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">'cliargs'</span><span class="ot">)</span>
-<span class="kw">local</span> hc    <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">'httpclient'</span><span class="ot">).</span>new<span class="ot">()</span>
-<span class="co">--</span>
-<span class="kw">local</span> default_url <span class="ot">=</span> <span class="st">'http://127.0.0.1:8000'</span>
-<span class="kw">local</span> date_fmt    <span class="ot">=</span> <span class="st">'%m-%d-%Y--%H-%M-%S'</span>
-<span class="co">--</span>
-<span class="co">-- cli args, parsing, and help docs</span>
-cli:option<span class="ot">(</span><span class="st">'--limit=NUMBER'</span><span class="ot">,</span> <span class="st">'max number of posts to send'</span><span class="ot">,</span> <span class="dv">100</span><span class="ot">)</span>
-cli:option<span class="ot">(</span><span class="st">'--url=HTTP_URL'</span><span class="ot">,</span> <span class="st">'URL to POST messages to'</span><span class="ot">,</span> default_url<span class="ot">)</span>
-cli:flag<span class="ot">(</span><span class="st">'--list'</span><span class="ot">,</span> <span class="st">'hit the list endpoint to retrieve the latest posts'</span><span class="ot">,</span> <span class="kw">false</span><span class="ot">)</span>
-<span class="co">--</span>
-<span class="co">-- auto-gen some JSON to send as a post/message</span>
-generate_post <span class="ot">=</span> <span class="kw">function</span> <span class="ot">()</span>
-  <span class="kw">return</span> <span class="ot">{</span> hello <span class="ot">=</span> world<span class="ot">,</span> now <span class="ot">=</span> <span class="fu">os.date</span><span class="ot">(</span>date_fmt<span class="ot">)}</span>
-<span class="kw">end</span>
-<span class="co">-- where msg is some {}</span>
-send_post <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>url<span class="ot">,</span> msg<span class="ot">)</span>
-  <span class="kw">return</span> hc:post<span class="ot">(</span>url<span class="ot">,</span>
-                 cjson<span class="ot">.</span>encode<span class="ot">(</span>msg<span class="ot">),</span>
-                 <span class="ot">{</span>content_type <span class="ot">=</span> <span class="st">'application/json'</span><span class="ot">})</span>
-<span class="kw">end</span>
-<span class="co">-- hit the /list endpoint to retrieve the latest posts</span>
-get_posts <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>url<span class="ot">)</span>
-  <span class="kw">return</span> hc:get<span class="ot">(</span>url<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- our primary loop</span>
-batch_send <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>url<span class="ot">,</span> limit<span class="ot">)</span>
-  <span class="kw">while</span> <span class="ot">(</span>limit <span class="ot">&gt;</span> <span class="dv">0</span><span class="ot">)</span>
-  <span class="kw">do</span>
-    msg <span class="ot">=</span> generate_post<span class="ot">()</span>
-    res <span class="ot">=</span> send_post<span class="ot">(</span>url<span class="ot">,</span> msg<span class="ot">)</span>
-    <span class="kw">if</span> res<span class="ot">.</span>code <span class="ot">==</span> <span class="dv">200</span> <span class="kw">then</span>
-      <span class="fu">print</span><span class="ot">(</span><span class="st">'POST success! '</span> <span class="ot">..</span> res<span class="ot">.</span>body<span class="ot">)</span>
-    <span class="kw">else</span>
-      <span class="fu">print</span><span class="ot">(</span><span class="st">'non-200 return! '</span> <span class="ot">..</span> res<span class="ot">.</span>code <span class="ot">..</span> <span class="st">' '</span> <span class="ot">..</span> res<span class="ot">.</span>err<span class="ot">)</span>
-    <span class="kw">end</span>
-    limit <span class="ot">=</span> limit<span class="ot">-</span><span class="dv">1</span>
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-<span class="co">--</span>
-<span class="kw">local</span> args<span class="ot">,</span> err <span class="ot">=</span> cli:parse<span class="ot">()</span>
-<span class="co">-- if there's an error in parsing (or --help), print it!</span>
-<span class="kw">if</span> err <span class="kw">then</span>
-  <span class="fu">print</span><span class="ot">(</span>err<span class="ot">)</span>
-  <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">0</span><span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">'Let us post a bunch of messages to the service:'</span><span class="ot">)</span>
-i <span class="ot">=</span> <span class="fu">math.random</span><span class="ot">(</span><span class="dv">0</span><span class="ot">,</span> args<span class="ot">.</span>limit<span class="ot">)</span>
-<span class="fu">print</span><span class="ot">(</span><span class="st">'We will print '</span> <span class="ot">..</span> i <span class="ot">..</span> <span class="st">' messages this time..'</span><span class="ot">)</span>
-batch_send<span class="ot">(</span>args<span class="ot">.</span>url<span class="ot">,</span> i<span class="ot">)</span>
-
-
-<span class="kw">if</span> args<span class="ot">.</span>list <span class="kw">then</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">'Let us retrieve the top posts saved/written to the service:'</span><span class="ot">)</span>
-  posts <span class="ot">=</span> get_posts<span class="ot">(</span>args<span class="ot">.</span>url <span class="ot">..</span> <span class="st">'/list'</span><span class="ot">).</span>body
-  <span class="fu">print</span><span class="ot">(</span>posts<span class="ot">)</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">'cjson'</span><span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="kw">local</span> cli   <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">'cliargs'</span><span class="op">)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a><span class="kw">local</span> hc    <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">'httpclient'</span><span class="op">).</span>new<span class="op">()</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="kw">local</span> default_url <span class="op">=</span> <span class="st">'http://127.0.0.1:8000'</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a><span class="kw">local</span> date_fmt    <span class="op">=</span> <span class="st">'%m-%d-%Y--%H-%M-%S'</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a><span class="co">-- cli args, parsing, and help docs</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>cli<span class="op">:</span>option<span class="op">(</span><span class="st">'--limit=NUMBER'</span><span class="op">,</span> <span class="st">'max number of posts to send'</span><span class="op">,</span> <span class="dv">100</span><span class="op">)</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a>cli<span class="op">:</span>option<span class="op">(</span><span class="st">'--url=HTTP_URL'</span><span class="op">,</span> <span class="st">'URL to POST messages to'</span><span class="op">,</span> default_url<span class="op">)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a>cli<span class="op">:</span>flag<span class="op">(</span><span class="st">'--list'</span><span class="op">,</span> <span class="st">'hit the list endpoint to retrieve the latest posts'</span><span class="op">,</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a><span class="co">-- auto-gen some JSON to send as a post/message</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a>generate_post <span class="op">=</span> <span class="kw">function</span> <span class="op">()</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true"></a>  <span class="cf">return</span> <span class="op">{</span> hello <span class="op">=</span> world<span class="op">,</span> now <span class="op">=</span> <span class="fu">os.date</span><span class="op">(</span>date_fmt<span class="op">)}</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true"></a><span class="co">-- where msg is some {}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true"></a>send_post <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>url<span class="op">,</span> msg<span class="op">)</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true"></a>  <span class="cf">return</span> hc<span class="op">:</span>post<span class="op">(</span>url<span class="op">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true"></a>                 cjson<span class="op">.</span>encode<span class="op">(</span>msg<span class="op">),</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true"></a>                 <span class="op">{</span>content_type <span class="op">=</span> <span class="st">'application/json'</span><span class="op">})</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true"></a><span class="co">-- hit the /list endpoint to retrieve the latest posts</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true"></a>get_posts <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>url<span class="op">)</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true"></a>  <span class="cf">return</span> hc<span class="op">:</span>get<span class="op">(</span>url<span class="op">)</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true"></a><span class="co">-- our primary loop</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true"></a>batch_send <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>url<span class="op">,</span> limit<span class="op">)</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true"></a>  <span class="cf">while</span> <span class="op">(</span>limit <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true"></a>  <span class="cf">do</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true"></a>    msg <span class="op">=</span> generate_post<span class="op">()</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true"></a>    res <span class="op">=</span> send_post<span class="op">(</span>url<span class="op">,</span> msg<span class="op">)</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true"></a>    <span class="cf">if</span> res<span class="op">.</span>code <span class="op">==</span> <span class="dv">200</span> <span class="cf">then</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true"></a>      <span class="fu">print</span><span class="op">(</span><span class="st">'POST success! '</span> <span class="op">..</span> res<span class="op">.</span>body<span class="op">)</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true"></a>    <span class="cf">else</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true"></a>      <span class="fu">print</span><span class="op">(</span><span class="st">'non-200 return! '</span> <span class="op">..</span> res<span class="op">.</span>code <span class="op">..</span> <span class="st">' '</span> <span class="op">..</span> res<span class="op">.</span>err<span class="op">)</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true"></a>    <span class="cf">end</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true"></a>    limit <span class="op">=</span> limit<span class="op">-</span><span class="dv">1</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true"></a><span class="kw">local</span> args<span class="op">,</span> err <span class="op">=</span> cli<span class="op">:</span>parse<span class="op">()</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true"></a><span class="co">-- if there's an error in parsing (or --help), print it!</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true"></a><span class="cf">if</span> err <span class="cf">then</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>err<span class="op">)</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true"></a>  <span class="fu">os.exit</span><span class="op">(</span><span class="dv">0</span><span class="op">)</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true"></a><span class="cf">end</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">'Let us post a bunch of messages to the service:'</span><span class="op">)</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true"></a>i <span class="op">=</span> <span class="fu">math.random</span><span class="op">(</span><span class="dv">0</span><span class="op">,</span> args<span class="op">.</span>limit<span class="op">)</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true"></a><span class="fu">print</span><span class="op">(</span><span class="st">'We will print '</span> <span class="op">..</span> i <span class="op">..</span> <span class="st">' messages this time..'</span><span class="op">)</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true"></a>batch_send<span class="op">(</span>args<span class="op">.</span>url<span class="op">,</span> i<span class="op">)</span></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true"></a></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true"></a></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true"></a><span class="cf">if</span> args<span class="op">.</span>list <span class="cf">then</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">'Let us retrieve the top posts saved/written to the service:'</span><span class="op">)</span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true"></a>  posts <span class="op">=</span> get_posts<span class="op">(</span>args<span class="op">.</span>url <span class="op">..</span> <span class="st">'/list'</span><span class="op">).</span>body</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>posts<span class="op">)</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <h3 id="dockerfile"><code>Dockerfile</code></h3>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">RUN</span> apk add --update openssl-dev git
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasec
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install httpclient
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua_cliargs
-<span class="kw">ADD</span> batch-posts.lua /src/batch-posts.lua
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /usr/local/openresty/luajit/bin/luajit
-<span class="kw">CMD</span> [<span class="st">&quot;batch-posts.lua&quot;</span>]</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="kw">RUN</span> apk add --update openssl-dev git</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasec</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install httpclient</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua_cliargs</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a><span class="kw">ADD</span> batch-posts.lua /src/batch-posts.lua</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /usr/local/openresty/luajit/bin/luajit</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a><span class="kw">CMD</span> [<span class="st">&quot;batch-posts.lua&quot;</span>]</span></code></pre></div>
 <h3 id="makefile"><code>Makefile</code></h3>
 <pre><code>MAX ?= 1000
 
@@ -167,6 +168,10 @@ help:
 <h3 id="continuing-on-to-part-10-pull-it-all-together10.">Continuing on to <a href="2017-03-10-lua-and-openresty-part-10-pull-it-all-together.html">Part 10, Pull it All Together</a>.</h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

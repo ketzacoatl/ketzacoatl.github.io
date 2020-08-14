@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 1: Hello World Examples</title>
+        <title>Intro to Lua and Openresty, Part 1: Hello World Examples - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -98,8 +99,8 @@ http {
 <p>Note that we’ve updated the content type spec to <code>application/json</code>. This is an nginx thing. It is nice that Openresty builds on the standard Nginx config directives.</p>
 <p>This example uses <code>content_by_lua</code> to embed the lua code directly in the <code>nginx.conf</code>. There is also a directive that can load the lua code from a file, but for simplicity and clarity, the examples in this series will keep the code in <code>nginx.conf</code>.</p>
 <p><code>cjson</code> is a lua module for encoding and decoding JSON data. There are a couple other options, but this is included in openresty, so there is no need to install a module with <code>luarocks</code> (we’ll get there in time).</p>
-<p><code>local cjson = require &quot;cjson&quot;</code> is an import of sorts. You may also see examples that use <code>require(&quot;cjson&quot;)</code> instead. I am not sure which is more common, and it seems to be an arbitrary stylistic detail.</p>
-<p>The JSON data we return in this example is <code>{ status = true, foobar = &quot;string&quot; }</code>. Note the use of <code>&quot;</code> for the string, while <code>true</code> is recognized as a boolean type. More info on <code>cjson</code> can be found in the <a href="https://www.kyne.com.au/~mark/software/lua-cjson-manual.html">lua-cjson manual</a>.</p>
+<p><code>local cjson = require "cjson"</code> is an import of sorts. You may also see examples that use <code>require("cjson")</code> instead. I am not sure which is more common, and it seems to be an arbitrary stylistic detail.</p>
+<p>The JSON data we return in this example is <code>{ status = true, foobar = "string" }</code>. Note the use of <code>"</code> for the string, while <code>true</code> is recognized as a boolean type. More info on <code>cjson</code> can be found in the <a href="https://www.kyne.com.au/~mark/software/lua-cjson-manual.html">lua-cjson manual</a>.</p>
 <h3 id="lets-see-it-run">Let’s see it run!</h3>
 <p>We use the same openresty docker image to run the JSON hello world:</p>
 <pre><code>ᐅ cd examples/02-hello-world-json
@@ -165,6 +166,10 @@ docker exec -it lua /usr/local/openresty/nginx/sbin/nginx -s reload
 <p>Continue on to <a href="2017-03-03-JSON-POST-processing-in-openresty.html">Part 2: JSON/POST Processing in Openresty</a>.</p>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Let's Build Nomad from Source!</title>
+        <title>Let's Build Nomad from Source! - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -30,46 +31,50 @@
 </div>
 
 <p>Want to help a community you love? Testing new features and bugfixing is a great way to do so! During the <code>0.3.2</code> to <code>0.4.x</code> dev cycle, I felt the need to run a few tests on Nomad. Here is the helper script I wrote to improve my experience building and releasing an archive I could deploy on a staging cluster for testing.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#!/bin/sh</span>
-
-<span class="co"># here is a helper script which sets up the go dependencies for nomad,</span>
-<span class="co"># builds the project executable, and packages that up in a zip file for</span>
-<span class="co"># distribution through your own channels. This zip can be push to S3,</span>
-<span class="co"># hosted on CM (salt), etc</span>
-
-<span class="co"># modify $VERSION, though that's just a surface detail</span>
-
-<span class="co"># install dependencies as root or with sudo</span>
-<span class="co">#apt-get update</span>
-<span class="co">#apt-get install -y build-essential curl    \</span>
-<span class="co">#                   git-core mercurial bzr  \</span>
-<span class="co">#                   libpcre3-dev pkg-config \</span>
-<span class="co">#                   zip default-jre qemu    \</span>
-<span class="co">#                   libc6-dev-i386          \</span>
-<span class="co">#                   silversearcher-ag jq    \</span>
-<span class="co">#                   htop vim unzip</span>
-
-<span class="co"># make sure you have $GOPATH and $GOROOT set correctly, and $PATH updated</span>
-<span class="kw">export</span> <span class="ot">GOPATH=$HOME</span>/.go
-<span class="kw">export</span> <span class="ot">GOROOT=</span>/opt/go
-<span class="kw">export</span> <span class="ot">PATH=</span><span class="st">&quot;</span><span class="ot">$PATH</span><span class="st">:</span><span class="ot">$GOROOT</span><span class="st">/bin:</span><span class="ot">$GOPATH</span><span class="st">/bin&quot;</span>
-
-<span class="ot">VERSION=</span><span class="st">&quot;0.4.1-dev&quot;</span>
-<span class="ot">HASHI_GIT=</span><span class="st">&quot;</span><span class="ot">$GOPATH</span><span class="st">/src/github.com/hashicorp&quot;</span>
-<span class="ot">NOMAD_SRC=</span><span class="st">&quot;</span><span class="ot">$HASHI_GIT</span><span class="st">/nomad&quot;</span>
-<span class="ot">ZIP_FILE=</span><span class="st">&quot;</span><span class="ot">$HOME</span><span class="st">/nomad_</span><span class="ot">${VERSION}</span><span class="st">_linux_amd64.zip&quot;</span>
-
-<span class="kw">mkdir</span> -p <span class="ot">$HASHI_GIT</span>
-<span class="kw">git</span> clone https://github.com/hashicorp/nomad <span class="ot">$NOMAD_SRC</span>
-
-<span class="kw">cd</span> <span class="ot">$NOMAD_SRC</span>
-<span class="kw">make</span> bootstrap
-<span class="kw">make</span> dev
-<span class="kw">cd</span> bin
-<span class="kw">zip</span> <span class="ot">$ZIP_FILE</span> nomad
-<span class="kw">sha512sum</span> <span class="ot">$ZIP_FILE</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="co">#!/bin/sh</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a><span class="co"># here is a helper script which sets up the go dependencies for nomad,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a><span class="co"># builds the project executable, and packages that up in a zip file for</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a><span class="co"># distribution through your own channels. This zip can be push to S3,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a><span class="co"># hosted on CM (salt), etc</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true"></a><span class="co"># modify $VERSION, though that's just a surface detail</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true"></a><span class="co"># install dependencies as root or with sudo</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true"></a><span class="co">#apt-get update</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true"></a><span class="co">#apt-get install -y build-essential curl    \</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true"></a><span class="co">#                   git-core mercurial bzr  \</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true"></a><span class="co">#                   libpcre3-dev pkg-config \</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true"></a><span class="co">#                   zip default-jre qemu    \</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true"></a><span class="co">#                   libc6-dev-i386          \</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true"></a><span class="co">#                   silversearcher-ag jq    \</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true"></a><span class="co">#                   htop vim unzip</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true"></a><span class="co"># make sure you have $GOPATH and $GOROOT set correctly, and $PATH updated</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true"></a><span class="bu">export</span> <span class="va">GOPATH=$HOME</span>/.go</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true"></a><span class="bu">export</span> <span class="va">GOROOT=</span>/opt/go</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true"></a><span class="bu">export</span> <span class="va">PATH=</span><span class="st">&quot;</span><span class="va">$PATH</span><span class="st">:</span><span class="va">$GOROOT</span><span class="st">/bin:</span><span class="va">$GOPATH</span><span class="st">/bin&quot;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true"></a><span class="va">VERSION=</span><span class="st">&quot;0.4.1-dev&quot;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true"></a><span class="va">HASHI_GIT=</span><span class="st">&quot;</span><span class="va">$GOPATH</span><span class="st">/src/github.com/hashicorp&quot;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true"></a><span class="va">NOMAD_SRC=</span><span class="st">&quot;</span><span class="va">$HASHI_GIT</span><span class="st">/nomad&quot;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true"></a><span class="va">ZIP_FILE=</span><span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/nomad_</span><span class="va">${VERSION}</span><span class="st">_linux_amd64.zip&quot;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true"></a><span class="fu">mkdir</span> -p <span class="va">$HASHI_GIT</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true"></a><span class="fu">git</span> clone https://github.com/hashicorp/nomad <span class="va">$NOMAD_SRC</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true"></a><span class="bu">cd</span> <span class="va">$NOMAD_SRC</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true"></a><span class="fu">make</span> bootstrap</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true"></a><span class="fu">make</span> dev</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true"></a><span class="bu">cd</span> bin</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true"></a><span class="fu">zip</span> <span class="va">$ZIP_FILE</span> nomad</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true"></a><span class="ex">sha512sum</span> <span class="va">$ZIP_FILE</span></span></code></pre></div>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

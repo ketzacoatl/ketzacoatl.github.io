@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 10: Pull it all together!</title>
+        <title>Intro to Lua and Openresty, Part 10: Pull it all together! - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -230,19 +231,19 @@ curl-msgs:
 	curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list</code></pre>
 <h3 id="openresty-app">Openresty App</h3>
 <p><code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">EXPOSE</span> 8000
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
-<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
-<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
-<span class="kw">ENV</span> DB_HOST    127.0.0.1
-<span class="kw">ENV</span> DB_USER    postgres
-<span class="kw">ENV</span> DB_PASS    password
-<span class="kw">ENV</span> DB_NAME    lua-app</code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a><span class="kw">EXPOSE</span> 8000</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a><span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a><span class="kw">ENV</span> REDIS_HOST 127.0.0.1</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a><span class="kw">ENV</span> DB_HOST    127.0.0.1</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a><span class="kw">ENV</span> DB_USER    postgres</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a><span class="kw">ENV</span> DB_PASS    password</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a><span class="kw">ENV</span> DB_NAME    lua-app</span></code></pre></div>
 <p><code>nginx.conf</code>:</p>
 <pre class="nginx"><code>worker_processes  1;                                                                                                                                                 [26/376]
 env DB_HOST;
@@ -319,100 +320,100 @@ http {
 }</code></pre>
 <h3 id="database">Database</h3>
 <p><code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
-<span class="kw">ENV</span>  POSTGRES_PASSWORD password
-<span class="kw">ENV</span>  POSTGRES_DB       lua-app
-<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="kw">FROM</span> postgres:alpine</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_PASSWORD password</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_DB       lua-app</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</span></code></pre></div>
 <p><code>init.sql</code> :</p>
-<div class="sourceCode"><pre class="sourceCode sql"><code class="sourceCode sql"><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> posts (<span class="kw">ID</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, <span class="kw">data</span> JSONB);</span></code></pre></div>
 <h3 id="data-processing-sink">Data Processing Sink</h3>
 <p><code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">ENV</span> REDIS_HOST 127.0.0.1
-<span class="kw">ENV</span> DB_HOST    127.0.0.1
-<span class="kw">ENV</span> DB_USER    postgres
-<span class="kw">ENV</span> DB_PASS    password
-<span class="kw">ENV</span> DB_NAME    lua-app
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">ADD</span> worker.lua /src/
-<span class="kw">WORKDIR</span> /src/
-<span class="kw">ENTRYPOINT</span> /bin/sh</code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true"></a><span class="kw">ENV</span> REDIS_HOST 127.0.0.1</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true"></a><span class="kw">ENV</span> DB_HOST    127.0.0.1</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true"></a><span class="kw">ENV</span> DB_USER    postgres</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true"></a><span class="kw">ENV</span> DB_PASS    password</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true"></a><span class="kw">ENV</span> DB_NAME    lua-app</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-hiredis</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true"></a><span class="kw">ADD</span> worker.lua /src/</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true"></a><span class="kw">WORKDIR</span> /src/</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true"></a><span class="kw">ENTRYPOINT</span> /bin/sh</span></code></pre></div>
 <p><code>worker.lua</code>:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-<span class="kw">local</span> redis  <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span>
-<span class="kw">local</span> pgmoon <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span>
-<span class="kw">local</span> pg <span class="ot">=</span> pgmoon<span class="ot">.</span>new<span class="ot">({</span>
-  host     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="ot">),</span>
-  port     <span class="ot">=</span> <span class="st">&quot;5432&quot;</span><span class="ot">,</span>
-  user     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_USER&quot;</span><span class="ot">),</span>
-  password <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="ot">),</span>
-  database <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="ot">)</span>
-<span class="ot">})</span>
-<span class="fu">assert</span><span class="ot">(</span>pg:<span class="fu">connect</span><span class="ot">())</span>
-<span class="kw">local</span> encode_json <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="ot">).</span>encode_json
-
-<span class="co">-- names for our lists in redis</span>
-<span class="kw">local</span> q     <span class="ot">=</span> <span class="st">&quot;enqueued&quot;</span>
-<span class="kw">local</span> p     <span class="ot">=</span> <span class="st">&quot;processing&quot;</span>
-<span class="co">-- length of time (seconds) to sleep</span>
-<span class="kw">local</span> delay <span class="ot">=</span> <span class="dv">0.001</span>
-
-<span class="co">-- return redis client, or fail and exit</span>
-credis <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>host<span class="ot">)</span>
-  <span class="kw">local</span> rc<span class="ot">,</span> err<span class="ot">,</span> err_code <span class="ot">=</span> hiredis<span class="ot">.</span>connect<span class="ot">(</span>host<span class="ot">,</span> <span class="dv">6379</span><span class="ot">)</span>
-  <span class="kw">if</span> <span class="kw">not</span> rc <span class="kw">then</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;error: &quot;</span> <span class="ot">..</span> err<span class="ot">)</span>
-    <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;code:  &quot;</span> <span class="ot">..</span> err_code<span class="ot">)</span>
-    <span class="fu">os.exit</span><span class="ot">(</span><span class="dv">1</span><span class="ot">)</span>
-  <span class="kw">else</span>
-    <span class="kw">return</span> rc
-  <span class="kw">end</span>
-<span class="kw">end</span>
-<span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span>
-get_work <span class="ot">=</span> <span class="kw">function</span><span class="ot">()</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="ot">,</span> q<span class="ot">,</span> p<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- write data to postgres</span>
-write_post <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>data<span class="ot">)</span>
-  <span class="fu">assert</span><span class="ot">(</span>pg:query<span class="ot">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="ot">..</span> encode_json<span class="ot">(</span>data<span class="ot">)</span> <span class="ot">..</span> <span class="st">&quot;);&quot;</span><span class="ot">))</span>
-<span class="kw">end</span>
-<span class="co">-- &quot;do&quot; the work</span>
-process <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
-  write_post<span class="ot">(</span>i<span class="ot">)</span>
-  <span class="fu">print</span><span class="ot">(</span>i<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- work is done, drop it from the processing table</span>
-dondrop <span class="ot">=</span> <span class="kw">function</span> <span class="ot">(</span>i<span class="ot">)</span>
-  <span class="kw">return</span> rc:command<span class="ot">(</span><span class="st">&quot;LREM&quot;</span><span class="ot">,</span> p<span class="ot">,</span> <span class="dv">1</span><span class="ot">,</span> i<span class="ot">)</span>
-<span class="kw">end</span>
-<span class="co">-- pause for a moment..</span>
-<span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span>
-sleep <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>t<span class="ot">)</span>
-  <span class="fu">os.execute</span><span class="ot">(</span><span class="st">&quot;sleep &quot;</span> <span class="ot">..</span> <span class="fu">tonumber</span><span class="ot">(</span>t<span class="ot">))</span>
-<span class="kw">end</span>
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-rc <span class="ot">=</span> credis<span class="ot">(</span><span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="ot">))</span>
-<span class="fu">assert</span><span class="ot">(</span>rc<span class="ot">)</span>
-<span class="co">-- loop doing work until you can't</span>
-<span class="kw">while</span> <span class="kw">true</span> <span class="kw">do</span>
-  item<span class="ot">,</span> err<span class="ot">,</span> code <span class="ot">=</span> get_work<span class="ot">(</span>q<span class="ot">,</span> p<span class="ot">)</span>
-  <span class="kw">if</span> item<span class="ot">.</span>name <span class="ot">==</span> <span class="st">&quot;NIL&quot;</span> <span class="kw">then</span>
-    <span class="co">-- pass</span>
-  <span class="kw">else</span>
-    <span class="co">--print(&quot;got item!&quot;)</span>
-    process<span class="ot">(</span>item<span class="ot">)</span>
-    dondrop<span class="ot">(</span>item<span class="ot">)</span>
-  <span class="kw">end</span>
-  sleep<span class="ot">(</span>delay<span class="ot">)</span>
-<span class="kw">end</span>
-
-rc:<span class="fu">close</span><span class="ot">()</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a><span class="kw">local</span> cjson  <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a><span class="kw">local</span> redis  <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;hiredis&quot;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a><span class="kw">local</span> pgmoon <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a><span class="kw">local</span> pg <span class="op">=</span> pgmoon<span class="op">.</span>new<span class="op">({</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>  host     <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="op">),</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>  port     <span class="op">=</span> <span class="st">&quot;5432&quot;</span><span class="op">,</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>  user     <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_USER&quot;</span><span class="op">),</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>  password <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="op">),</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>  database <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="op">)</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true"></a><span class="op">})</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true"></a><span class="fu">assert</span><span class="op">(</span>pg<span class="op">:</span><span class="fu">connect</span><span class="op">())</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true"></a><span class="kw">local</span> encode_json <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="op">).</span>encode_json</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true"></a></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true"></a><span class="co">-- names for our lists in redis</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true"></a><span class="kw">local</span> q     <span class="op">=</span> <span class="st">&quot;enqueued&quot;</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true"></a><span class="kw">local</span> p     <span class="op">=</span> <span class="st">&quot;processing&quot;</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true"></a><span class="co">-- length of time (seconds) to sleep</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true"></a><span class="kw">local</span> delay <span class="op">=</span> <span class="dv">0.001</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true"></a></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true"></a><span class="co">-- return redis client, or fail and exit</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true"></a>credis <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>host<span class="op">)</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true"></a>  <span class="kw">local</span> rc<span class="op">,</span> err<span class="op">,</span> err_code <span class="op">=</span> hiredis<span class="op">.</span>connect<span class="op">(</span>host<span class="op">,</span> <span class="dv">6379</span><span class="op">)</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true"></a>  <span class="cf">if</span> <span class="kw">not</span> rc <span class="cf">then</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;failed to connect to redis..&quot;</span><span class="op">)</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;error: &quot;</span> <span class="op">..</span> err<span class="op">)</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true"></a>    <span class="fu">print</span><span class="op">(</span><span class="st">&quot;code:  &quot;</span> <span class="op">..</span> err_code<span class="op">)</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true"></a>    <span class="fu">os.exit</span><span class="op">(</span><span class="dv">1</span><span class="op">)</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true"></a>    <span class="cf">return</span> rc</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true"></a><span class="co">-- retrieve work from redis, store it in &quot;processing&quot; table</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true"></a>get_work <span class="op">=</span> <span class="kw">function</span><span class="op">()</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;RPOPLPUSH&quot;</span><span class="op">,</span> q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true"></a><span class="co">-- write data to postgres</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true"></a>write_post <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>data<span class="op">)</span></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true"></a>  <span class="fu">assert</span><span class="op">(</span>pg<span class="op">:</span>query<span class="op">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="op">..</span> encode_json<span class="op">(</span>data<span class="op">)</span> <span class="op">..</span> <span class="st">&quot;);&quot;</span><span class="op">))</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true"></a><span class="co">-- &quot;do&quot; the work</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true"></a>process <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true"></a>  write_post<span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true"></a><span class="co">-- work is done, drop it from the processing table</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true"></a>dondrop <span class="op">=</span> <span class="kw">function</span> <span class="op">(</span>i<span class="op">)</span></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true"></a>  <span class="cf">return</span> rc<span class="op">:</span>command<span class="op">(</span><span class="st">&quot;LREM&quot;</span><span class="op">,</span> p<span class="op">,</span> <span class="dv">1</span><span class="op">,</span> i<span class="op">)</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true"></a><span class="co">-- pause for a moment..</span></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true"></a><span class="co">-- could also use socket.sleep(sec) from the &quot;socket&quot; library</span></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true"></a>sleep <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>t<span class="op">)</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true"></a>  <span class="fu">os.execute</span><span class="op">(</span><span class="st">&quot;sleep &quot;</span> <span class="op">..</span> <span class="fu">tonumber</span><span class="op">(</span>t<span class="op">))</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true"></a>rc <span class="op">=</span> credis<span class="op">(</span><span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;REDIS_HOST&quot;</span><span class="op">))</span></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true"></a><span class="fu">assert</span><span class="op">(</span>rc<span class="op">)</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true"></a><span class="co">-- loop doing work until you can't</span></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true"></a><span class="cf">while</span> <span class="kw">true</span> <span class="cf">do</span></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true"></a>  item<span class="op">,</span> err<span class="op">,</span> code <span class="op">=</span> get_work<span class="op">(</span>q<span class="op">,</span> p<span class="op">)</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true"></a>  <span class="cf">if</span> item<span class="op">.</span>name <span class="op">==</span> <span class="st">&quot;NIL&quot;</span> <span class="cf">then</span></span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true"></a>    <span class="co">-- pass</span></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true"></a>  <span class="cf">else</span></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true"></a>    <span class="co">--print(&quot;got item!&quot;)</span></span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true"></a>    process<span class="op">(</span>item<span class="op">)</span></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true"></a>    dondrop<span class="op">(</span>item<span class="op">)</span></span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true"></a>  <span class="cf">end</span></span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true"></a>  sleep<span class="op">(</span>delay<span class="op">)</span></span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true"></a><span class="cf">end</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true"></a></span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true"></a>rc<span class="op">:</span><span class="fu">close</span><span class="op">()</span></span></code></pre></div>
 <h3 id="make-the-images">Make the Images</h3>
 <pre><code>ᐅ make build
 docker build --tag=db:demo   --rm=true ./db
@@ -648,6 +649,10 @@ Connection: keep-alive
 <hr />
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

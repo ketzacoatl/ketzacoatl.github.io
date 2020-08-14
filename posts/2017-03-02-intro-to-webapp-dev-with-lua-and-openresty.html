@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Introduction to Webapp Development with Lua and Openresty</title>
+        <title>Introduction to Webapp Development with Lua and Openresty - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -32,19 +33,9 @@
 <p>This is a series of posts that aim to explore the basics of webapp development with <a href="http://www.lua.org/">Lua</a> and <a href="http://openresty.org/en/">Openresty</a>. While I have read a bit about Lua and Openresty in the past, I have no real-world experience with this stack. <strong>The purpose of these posts is to document my explorations, and to do so in a way that might help you explore similar topics.</strong></p>
 <p>This initial post will provide an introduction to the series, and will include various notes taken from my initial research. The simplest hello world examples will follow in a separate post, and future posts after that will get into more specific problems to solve.</p>
 <h3 id="posts-in-the-series">Posts in the Series</h3>
-<ol style="list-style-type: decimal">
-<li><a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Part 1: Hello World Examples</a></li>
-<li><a href="2017-03-03-JSON-POST-processing-in-openresty.html">Part 2: JSON/POST Processing in Openresty</a></li>
-<li><a href="2017-03-04-lua-and-openresty-part-3-write-to-postgres.html">Part 3: Write to Postgres</a></li>
-<li><a href="2017-03-04-lua-and-openresty-part-4-using-envvars.html">Part 4: Using Envvars</a></li>
-<li><a href="2017-03-05-lua-and-openresty-part-5-redis.html">Part 5: Redis</a></li>
-<li><a href="2017-03-06-lua-and-openresty-interlude-issues-with-luarocks-and-alpine.html">Interlude 1: Issues with Luarocks and Alpine</a></li>
-<li><a href="2017-03-06-lua-and-openresty-part-6-data-processing-sink.html">Part 6: Data Processing Sink</a></li>
-<li><a href="2017-03-07-lua-and-openresty-interlude-exploring-luas-package-path.html">Interlude 2: Exploring Luas Package Path</a></li>
-<li><a href="2017-03-07-lua-and-openresty-part-7-limit-HTTP-methods.html">Part 7: Limit HTTP Methods</a></li>
-<li><a href="2017-03-08-lua-and-openresty-part-8-reading-from-postgres.html">Part 8: Reading from Postgres</a></li>
-<li><a href="2017-03-09-lua-and-openresty-part-9-http-clients.html">Part 9: HTTP Clients</a></li>
-<li><a href="2017-03-10-lua-and-openresty-part-10-pull-it-all-together.html">Part 10: Pull it all Together</a></li>
+<ol type="1">
+<li><a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Hello World Examples</a></li>
+<li><a href="2017-03-03-JSON-POST-processing-in-openresty.html">JSON/POST Processing in Openresty</a></li>
 </ol>
 <h2 id="what-is-our-target">What is our target?</h2>
 <p>I have a difficult time learning how to use a new language, stack, or framework if the examples are not following topics you find in the real-world of webapp development. While this series will be introductory, we will aim to produce a small cluster of services that demonstrate the basic components of a meaningful data transaction/processing workflow.</p>
@@ -66,7 +57,7 @@
 <li>The service should work as follows:
 <ul>
 <li>There are two primary actions:
-<ol style="list-style-type: decimal">
+<ol type="1">
 <li>write a message (POST)</li>
 <li>retrieve N of the most recent messages (GET)</li>
 </ol></li>
@@ -190,7 +181,7 @@
 <li>start with <a href="https://redis.io/commands/rpoplpush"><code>RPOPLPUSH</code></a> for a simple but reliable queue</li>
 </ul></li>
 <li>use JSON everywhere (processing POST/GET actions, in the queue, and in the datastore)</li>
-<li>format POST messages in JSON with: <code>{&quot;msg&quot;: &quot;....&quot;}</code></li>
+<li>format POST messages in JSON with: <code>{"msg": "...."}</code></li>
 </ul>
 <h2 id="options-for-the-queue">Options for the Queue</h2>
 <p>Overall, the most open-ended questions still lingering are how to implement the queue itself. Here are some notes from my research into this topic.</p>
@@ -232,6 +223,10 @@
 <p>With the various problems enumerated and some initial research complete, it is time to move on to the canonical <a href="2017-03-02-lua-and-openresty-hello-world-examples.html">Hello World!</a> examples.</p>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

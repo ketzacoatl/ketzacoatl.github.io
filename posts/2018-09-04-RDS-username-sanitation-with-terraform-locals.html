@@ -1,0 +1,92 @@
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>How to Sanitize the RDS Username with Terraform - Spaceship Earth</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>How to Sanitize the RDS Username with Terraform</h1>
+
+            <div class="info">
+    Posted on September  4, 2018
+    
+</div>
+
+<h1 id="how-to-sanitize-the-rds-username-for-acceptance-by-api-validation-with-terraform">How to Sanitize the RDS Username (for acceptance by API validation) with Terraform</h1>
+<p>Let’s say you want to use RDS on AWS.</p>
+<p>You write some Terraform to manage those resources:</p>
+<pre><code>Fill in</code></pre>
+<p>Tou may even use some module to do the same for you:</p>
+<pre><code>Fill in</code></pre>
+<p>But regardless, you pass/define a username for the RDS database admin.</p>
+<p>More importantly, AWS has <em>really</em> specific expectations on that username.</p>
+<p>Here is a way to validate our provided password to align with a few of those expectations:</p>
+<pre><code>locals {
+  # we have to fixup the master username before we use it, the AWS API will error out otherwise
+  # RDS expects the username to be without hyphens and 16 characters at max. 'rdsadmin' is also
+  # a forbidden username, though we don't validate that here.
+  db_master_user_unsanitized = &quot;${var.app_db_master_user}&quot;
+
+  # truncate to 16 characters, but deal with the fact that substr() will error out if you ask
+  # for more characters than are in the string
+  master_user_max_length = &quot;16&quot;
+
+  master_user_length            = &quot;${length(local.db_master_user_unsanitized)}&quot;
+  master_user_truncation_length = &quot;${local.master_user_length &lt; local.default_master_user_max_length ? local.master_user_length : local.master_user_max_length}&quot;
+  db_master_user_truncated      = &quot;${substr(local.db_master_user_unsanitized, 0, local.master_user_max_length)}&quot;
+
+  # remove hyphens from the username
+  db_master_user = &quot;${replace(local.db_master_user_truncated, &quot;-&quot;, &quot;&quot;)}&quot;
+}</code></pre>
+<p>TODO: fix the issue above where we replace after truncating, replace then truncate.</p>
+<h3 id="pieces-to-the-puzzle">Pieces to the Puzzle</h3>
+<p>First, we use local values to define some parameters, we have:</p>
+<ul>
+<li>the “Unsanitized” username,</li>
+<li>the “maximum allowed length” for the username,</li>
+<li>the “length of the current (unsanitized) username”,</li>
+<li>the “length to truncate the username at”</li>
+<li>the truncated/sanitized password</li>
+</ul>
+<p>We use these parameters as follows:</p>
+<ul>
+<li>NOTE: / TODO: run <code>replace()</code> to remove <code>-</code> first</li>
+<li>The max length is defined to be 16 characters. This is based on <a href="TODO-fill-in">the API spec from AWS</a>.</li>
+<li>We run <code>length()</code> on the unsanitized username <code>db_master_user_unsanitized</code>.</li>
+<li>We compare the length of that string against the maximum length allowed.</li>
+<li>If the length of that string is larger/bigger than the max allowed, we set our max limit as the truncation length.</li>
+<li>If the length of that string is less than the max, we use the length of the string as our truncation length.</li>
+<li>We truncate the username to the truncation length.</li>
+</ul>
+
+        </div>
+
+        <div class="info">
+        </div>
+
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>

@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 2: JSON/POST Processing in Openresty</title>
+        <title>Intro to Lua and Openresty, Part 2: JSON/POST Processing in Openresty - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -49,7 +50,7 @@
 <h3 id="capturing-post-data">Capturing POST data</h3>
 <p>The “new” bit in all of this is retrieving/validating the request data. One of the modules discovered in my initial research appears to be “the way” to do this in Openresty. That module is <a href="https://github.com/bungle/lua-resty-reqargs">lua-resty-reqargs</a>.</p>
 <p><code>reqargs</code> greatly simplifies this task. In fact, the workhorse in this example is the following one liner:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> get<span class="ot">,</span> post<span class="ot">,</span> <span class="fu">files</span> <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;resty.reqargs&quot;</span><span class="ot">()</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="kw">local</span> get<span class="op">,</span> post<span class="op">,</span> <span class="fu">files</span> <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;resty.reqargs&quot;</span><span class="op">()</span></span></code></pre></div>
 <p>Eg, if we are to POST some arbitrary JSON and use <code>reqargs</code> to capture it, <code>post</code> would be the validated JSON object (or empty, if the JSON was invalid). Note that this is slightly different from the last example in that we’re “importing” <em>and</em> “calling” <code>reqargs</code> in one fell swoop.</p>
 <p>What this does for us is pretty simple, but I won’t try to explain it, as the <a href="https://github.com/bungle/lua-resty-reqargs#get-post-files-regargsoptions">docs</a> say it best:</p>
 <blockquote>
@@ -105,11 +106,11 @@ lua-resty-reqargs 1.4-1 is now built and installed in /usr/local/openresty/luaji
 <h3 id="dockerfile"><code>Dockerfile</code></h3>
 <p>Given that the base <code>openresty</code> Docker image needs to be “updated” before we can use it for this example, it makes sense to create a <code>Dockerfile</code> and build an image to use when we want to run our code.</p>
 <p>Here is the <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">EXPOSE</span> 8000
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
-<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">EXPOSE</span> 8000</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</span></code></pre></div>
 <p>We can now build that image with:</p>
 <pre><code>ᐅ docker build --tag=app:3 --rm=true ./</code></pre>
 <p>Note that I’m tagging the image with <code>app:3</code> as part of the series of examples, other images will have <code>app:4</code>, <code>db:4</code> and so on.</p>
@@ -199,6 +200,10 @@ app</code></pre>
 <h3 id="continue-on-to-part-3-connecting-and-writing-to-postgres3">Continue on to Part 3, <a href="2017-03-04-lua-and-openresty-part-3-write-to-postgres.html">Connecting and Writing to Postgres</a></h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

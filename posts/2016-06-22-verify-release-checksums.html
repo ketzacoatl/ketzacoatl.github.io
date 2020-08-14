@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Verify Release Checksums</title>
+        <title>Verify Release Checksums - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -35,13 +36,13 @@
 <p>Without further ado, here are two snippets I use, one for <code>docker-compose</code>, the other for the Hashicorp suite of tools.</p>
 <h3 id="docker-compose">docker-compose</h3>
 <p>First, set the <code>VERSIONS</code>:</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ot">VERSIONS=</span><span class="st">&quot;1.7.1 1.7.0 1.6.2 1.6.1 1.6.0 1.5.2&quot;</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="va">VERSIONS=</span><span class="st">&quot;1.7.1 1.7.0 1.6.2 1.6.1 1.6.0 1.5.2&quot;</span></span></code></pre></div>
 <p>Then <code>wget</code> and <code>sha512sum</code> those in a loop:</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">for</span> <span class="kw">v</span> in <span class="ot">$VERSIONS</span>
-  <span class="kw">do</span>
-  <span class="kw">wget</span> -o download.log -O docker-compose-Linux-x86_64-<span class="ot">$v</span> https://github.com/docker/compose/releases/download/<span class="ot">$v</span>/docker-compose-Linux-x86_64
-  <span class="kw">sha512sum</span> docker-compose-Linux-x86_64-<span class="ot">$v</span>
-<span class="kw">done</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">for</span> <span class="ex">v</span> in <span class="va">$VERSIONS</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a>  <span class="kw">do</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a>  <span class="fu">wget</span> -o download.log -O docker-compose-Linux-x86_64-<span class="va">$v</span> https://github.com/docker/compose/releases/download/<span class="va">$v</span>/docker-compose-Linux-x86_64</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>  <span class="ex">sha512sum</span> docker-compose-Linux-x86_64-<span class="va">$v</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="kw">done</span></span></code></pre></div>
 <p>The output will look like:</p>
 <pre><code>06ab1b16d067292b7a0235805eaff13698f7ff9263d20a4368e535f1cb1ebe417fa85a51fd1e335128aa94afff26b6ff22f8f6af534e9e8caa73c4e390916955  docker-compose-Linux-x86_64-1.7.1
 ebb70b96961c18d3cbdd045e742087a018ea3d20d223f7e23cdace0bd77a596bf68952d767b79c1dfada35123dfcc7f2dd3a1a6dc8134f8d5cf7e445665061b2  docker-compose-Linux-x86_64-1.7.0
@@ -51,15 +52,15 @@ f67ab4e2f225adae57813a4188803893a49aa8651a324af67c2554d35e4e72278a7d8a565a8021b3
 7dc80c9f86c9845bdd67624e3584c40024a54c8c2cb62e07c9a784625e68d7a9670dd4cd5aa2239917a23a8a149c68c053c24e60baa82ee3cf4cc7bbce65670e  docker-compose-Linux-x86_64-1.5.2</code></pre>
 <h3 id="hashicorp-tools">Hashicorp Tools</h3>
 <p>Set the <code>APP</code> and <code>VERSIONS</code> to target:</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="ot">APP=</span>vault
-<span class="ot">VERSIONS=</span><span class="st">&quot;0.5.1 0.5.2 0.5.3 0.6.0&quot;</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="va">APP=</span>vault</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a><span class="va">VERSIONS=</span><span class="st">&quot;0.5.1 0.5.2 0.5.3 0.6.0&quot;</span></span></code></pre></div>
 <p><code>APP</code> can be any one of the tools <a href="https://releases.hashicorp.com/">listed here</a>.</p>
 <p>Then retrieve:</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">for</span> <span class="kw">v</span> in <span class="ot">$VERSIONS</span>
-  <span class="kw">do</span>
-  <span class="kw">wget</span> -o download.log -O <span class="ot">${APP}</span>_<span class="ot">${v}</span>_linux_amd64.zip https://releases.hashicorp.com/<span class="ot">$APP</span>/<span class="ot">$v</span>/<span class="ot">${APP}</span>_<span class="ot">${v}</span>_linux_amd64.zip
-  <span class="kw">sha512sum</span> <span class="ot">${APP}</span>_<span class="ot">${v}</span>_linux_amd64.zip
-<span class="kw">done</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="kw">for</span> <span class="ex">v</span> in <span class="va">$VERSIONS</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a>  <span class="kw">do</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a>  <span class="fu">wget</span> -o download.log -O <span class="va">${APP}</span>_<span class="va">${v}</span>_linux_amd64.zip https://releases.hashicorp.com/<span class="va">$APP</span>/<span class="va">$v</span>/<span class="va">${APP}</span>_<span class="va">${v}</span>_linux_amd64.zip</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a>  <span class="ex">sha512sum</span> <span class="va">${APP}</span>_<span class="va">${v}</span>_linux_amd64.zip</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="kw">done</span></span></code></pre></div>
 <p>Output will look like:</p>
 <pre><code>caeafe21ec01911cb888dd77e299d16457eb1b80844a68070489bfe078c5f8160067a5d8e82174e1e5d11f0e1a254272c71ab801b590ef556f1880c421f5fc12  vault_0.5.1_linux_amd64.zip
 17e60dbb13d34db805f8a4659e177ab2c05ae164aba75debfd3d05197f1f270022436cd37c00050883271ac0ea4e66847495fa573880a1135f67d16155fa28d1  vault_0.5.2_linux_amd64.zip
@@ -68,6 +69,10 @@ f67ab4e2f225adae57813a4188803893a49aa8651a324af67c2554d35e4e72278a7d8a565a8021b3
 <p>This post was originally a gist, but I’m consolidating my notes into one place for my own sanity (and sharing with you is an added bonus).</p>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

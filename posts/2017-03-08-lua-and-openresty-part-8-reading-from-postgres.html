@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 8: Bulk Retrieval from Postgres</title>
+        <title>Intro to Lua and Openresty, Part 8: Bulk Retrieval from Postgres - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -92,32 +93,32 @@ http {
 }</code></pre>
 <h3 id="the-producer.lua">The <code>producer.lua</code></h3>
 <p>If we are going to retrieve a bunch of messages from the database, we first need to populate it with some data. We have <code>producer.lua</code> to do that:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-<span class="kw">local</span> pgmoon <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span>
-<span class="kw">local</span> pg <span class="ot">=</span> pgmoon<span class="ot">.</span>new<span class="ot">({</span>
-  host     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="ot">),</span>
-  port     <span class="ot">=</span> <span class="st">&quot;5432&quot;</span><span class="ot">,</span>
-  user     <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_USER&quot;</span><span class="ot">),</span>
-  password <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="ot">),</span>
-  database <span class="ot">=</span> <span class="fu">os.getenv</span><span class="ot">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="ot">)</span>
-<span class="ot">})</span>
-<span class="fu">assert</span><span class="ot">(</span>pg:<span class="fu">connect</span><span class="ot">())</span>
-<span class="kw">local</span> encode_json <span class="ot">=</span> <span class="fu">require</span><span class="ot">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="ot">).</span>encode_json
-
-<span class="fu">write</span> <span class="ot">=</span> <span class="kw">function</span><span class="ot">(</span>data<span class="ot">)</span>
-  <span class="fu">assert</span><span class="ot">(</span>pg:query<span class="ot">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="ot">..</span> encode_json<span class="ot">(</span>data<span class="ot">)</span> <span class="ot">..</span> <span class="st">&quot;);&quot;</span><span class="ot">))</span>
-  <span class="fu">print</span><span class="ot">(</span>data<span class="ot">)</span>
-<span class="kw">end</span>
-
-<span class="co">--</span>
-<span class="co">-- MAIN</span>
-<span class="kw">for</span> l<span class="ot">=</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">500</span>
-<span class="kw">do</span>
-  <span class="fu">print</span><span class="ot">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="ot">..</span> l<span class="ot">)</span>
-  date_fmt <span class="ot">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span>
-  <span class="fu">write</span><span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>timestamp <span class="ot">=</span> <span class="fu">os.date</span><span class="ot">(</span>date_fmt<span class="ot">),</span> msg <span class="ot">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="ot">..</span> l<span class="ot">}))</span>
-  l <span class="ot">=</span> l <span class="ot">+</span> <span class="dv">1</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="kw">local</span> pgmoon <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;pgmoon&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a><span class="kw">local</span> pg <span class="op">=</span> pgmoon<span class="op">.</span>new<span class="op">({</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>  host     <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_HOST&quot;</span><span class="op">),</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a>  port     <span class="op">=</span> <span class="st">&quot;5432&quot;</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a>  user     <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_USER&quot;</span><span class="op">),</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a>  password <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_PASS&quot;</span><span class="op">),</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a>  database <span class="op">=</span> <span class="fu">os.getenv</span><span class="op">(</span><span class="st">&quot;DB_NAME&quot;</span><span class="op">)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="op">})</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="fu">assert</span><span class="op">(</span>pg<span class="op">:</span><span class="fu">connect</span><span class="op">())</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="kw">local</span> encode_json <span class="op">=</span> <span class="fu">require</span><span class="op">(</span><span class="st">&quot;pgmoon.json&quot;</span><span class="op">).</span>encode_json</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a><span class="fu">write</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span>data<span class="op">)</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a>  <span class="fu">assert</span><span class="op">(</span>pg<span class="op">:</span>query<span class="op">(</span><span class="st">&quot;INSERT INTO posts (data) VALUES(&quot;</span> <span class="op">..</span> encode_json<span class="op">(</span>data<span class="op">)</span> <span class="op">..</span> <span class="st">&quot;);&quot;</span><span class="op">))</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span>data<span class="op">)</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a><span class="kw">end</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true"></a><span class="co">--</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true"></a><span class="co">-- MAIN</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true"></a><span class="cf">for</span> l<span class="op">=</span><span class="dv">1</span><span class="op">,</span> <span class="dv">500</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true"></a><span class="cf">do</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true"></a>  <span class="fu">print</span><span class="op">(</span><span class="st">&quot;enqueue: &quot;</span> <span class="op">..</span> l<span class="op">)</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true"></a>  date_fmt <span class="op">=</span> <span class="st">&quot;%m-%d-%Y--%H-%M-%S&quot;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true"></a>  <span class="fu">write</span><span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>timestamp <span class="op">=</span> <span class="fu">os.date</span><span class="op">(</span>date_fmt<span class="op">),</span> msg <span class="op">=</span> <span class="st">&quot;hi! this is &quot;</span> <span class="op">..</span> l<span class="op">}))</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true"></a>  l <span class="op">=</span> l <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <h3 id="the-makefile">The <code>Makefile</code></h3>
 <pre><code>build:
         docker build --tag=db:9  --rm=true ./db
@@ -157,24 +158,24 @@ test:
         curl -i -H &quot;Content-Type: application/json&quot; localhost:8000/list</code></pre>
 <h3 id="app-dockerfile">App <code>Dockerfile</code></h3>
 <p>This has both the lua web app as well as <code>producer.lua</code> stand-alone script, so either “role” can be run from the same image (for simplicity of demonstration):</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">EXPOSE</span> 8000
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket
-<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
-<span class="kw">ADD</span> producer.lua /src/
-<span class="kw">ENV</span> DB_HOST 127.0.0.1
-<span class="kw">ENV</span> DB_USER postgres
-<span class="kw">ENV</span> DB_PASS password
-<span class="kw">ENV</span> DB_NAME lua-app</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="kw">EXPOSE</span> 8000</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install pgmoon</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-resty-reqargs</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install luasocket</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a><span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a><span class="kw">ADD</span> producer.lua /src/</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a><span class="kw">ENV</span> DB_HOST 127.0.0.1</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a><span class="kw">ENV</span> DB_USER postgres</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a><span class="kw">ENV</span> DB_PASS password</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true"></a><span class="kw">ENV</span> DB_NAME lua-app</span></code></pre></div>
 <h3 id="the-database">The Database</h3>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> postgres:alpine
-<span class="kw">ENV</span>  POSTGRES_PASSWORD password
-<span class="kw">ENV</span>  POSTGRES_DB       lua-app
-<span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="kw">FROM</span> postgres:alpine</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_PASSWORD password</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">ENV</span>  POSTGRES_DB       lua-app</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="kw">ADD</span>  init.sql /docker-entrypoint-initdb.d/</span></code></pre></div>
 <p>…and the db’s <code>init.sql</code>:</p>
 <pre><code>CREATE TABLE posts (ID SERIAL PRIMARY KEY, data JSONB);</code></pre>
 <h3 id="build-the-docker-images">Build the Docker images</h3>
@@ -274,6 +275,10 @@ Connection: keep-alive
 <h3 id="continuing-on-to-part-9-http-clients1.">Continuing on to <a href="2017-03-09-lua-and-openresty-part-9-http-clients.html">Part 9, HTTP Clients</a>.</h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

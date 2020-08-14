@@ -1,11 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!doctype html>
+
+<html lang="en">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Spaceship Earth - Intro to Lua and Openresty, Part 7: Limit HTTP Methods</title>
+        <title>Intro to Lua and Openresty, Part 7: Limit HTTP Methods - Spaceship Earth</title>
         <link rel="stylesheet" type="text/css" href="../css/default.css" />
         <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
     </head>
     <body>
         <div id="header">
@@ -35,29 +36,29 @@
 <h2 id="restricting-access-based-on-http-method">Restricting access based on HTTP method</h2>
 <p>Let’s say you have an endpoint that accepts <code>GET</code> and <code>POST</code>, how do you ensure you only process requests of those type, and block non-allowed methods as early as possible? The purpose of this exercise is to demonstrate how to inspect and react to the specific HTTP method used to access the URI location. While there are multiple ways to accomplish this directly in <code>nginx.conf</code>, we will use Lua to inspect and take action on these methods.</p>
 <h3 id="micro-example">Micro Example</h3>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> http_method <span class="ot">=</span> ngx<span class="ot">.</span>var<span class="ot">.</span>request_method
-<span class="kw">if</span> http_method <span class="ot">==</span> ngx<span class="ot">.</span>HTTP_GET <span class="kw">then</span>
-  <span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_OK
-  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> <span class="st">&quot;GET&quot;</span><span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;allowed&quot;</span><span class="ot">}))</span>
-  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_OK<span class="ot">)</span>
-<span class="kw">else</span>
-  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_NOT_ALLOWED
-  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> http_method <span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;denied&quot;</span><span class="ot">}))</span>
-  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_NOT_ALLOWED<span class="ot">)</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="kw">local</span> http_method <span class="op">=</span> ngx<span class="op">.</span>var<span class="op">.</span>request_method</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a><span class="cf">if</span> http_method <span class="op">==</span> ngx<span class="op">.</span><span class="cn">HTTP_GET</span> <span class="cf">then</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>  <span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>  ngx<span class="op">.</span>status <span class="op">=</span> ngx<span class="op">.</span><span class="cn">HTTP_OK</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>  ngx<span class="op">.</span>say<span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>method <span class="op">=</span> <span class="st">&quot;GET&quot;</span><span class="op">,</span> status <span class="op">=</span> <span class="st">&quot;allowed&quot;</span><span class="op">}))</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a>  <span class="cf">return</span> ngx<span class="op">.</span>exit<span class="op">(</span>ngx<span class="op">.</span><span class="cn">HTTP_OK</span><span class="op">)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a><span class="cf">else</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true"></a>  ngx<span class="op">.</span>status <span class="op">=</span> ngx<span class="op">.</span><span class="cn">HTTP_NOT_ALLOWED</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true"></a>  ngx<span class="op">.</span>say<span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>method <span class="op">=</span> http_method <span class="op">,</span> status <span class="op">=</span> <span class="st">&quot;denied&quot;</span><span class="op">}))</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true"></a>  <span class="cf">return</span> ngx<span class="op">.</span>exit<span class="op">(</span>ngx<span class="op">.</span><span class="cn">HTTP_NOT_ALLOWED</span><span class="op">)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <p>Note.. in testing this, <code>ngx.HTTP_GET</code> appears to be <code>2</code>, while <code>ngx.HTTP_POST</code> is <code>8</code>, so I have used this instead:</p>
-<div class="sourceCode"><pre class="sourceCode lua"><code class="sourceCode lua"><span class="kw">local</span> http_method <span class="ot">=</span> ngx<span class="ot">.</span>var<span class="ot">.</span>request_method
-<span class="kw">if</span> http_method <span class="ot">==</span> <span class="st">&quot;GET&quot;</span> <span class="kw">then</span>
-  <span class="kw">local</span> cjson <span class="ot">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span>
-  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_OK
-  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> <span class="st">&quot;GET&quot;</span><span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;allowed&quot;</span><span class="ot">}))</span>
-  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_OK<span class="ot">)</span>
-<span class="kw">else</span>
-  ngx<span class="ot">.</span>status <span class="ot">=</span> ngx<span class="ot">.</span>HTTP_NOT_ALLOWED
-  ngx<span class="ot">.</span>say<span class="ot">(</span>cjson<span class="ot">.</span>encode<span class="ot">({</span>method <span class="ot">=</span> http_method <span class="ot">,</span> status <span class="ot">=</span> <span class="st">&quot;denied&quot;</span><span class="ot">}))</span>
-  <span class="kw">return</span> ngx<span class="ot">.</span>exit<span class="ot">(</span>ngx<span class="ot">.</span>HTTP_NOT_ALLOWED<span class="ot">)</span>
-<span class="kw">end</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode lua"><code class="sourceCode lua"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">local</span> http_method <span class="op">=</span> ngx<span class="op">.</span>var<span class="op">.</span>request_method</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="cf">if</span> http_method <span class="op">==</span> <span class="st">&quot;GET&quot;</span> <span class="cf">then</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a>  <span class="kw">local</span> cjson <span class="op">=</span> <span class="fu">require</span> <span class="st">&quot;cjson&quot;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>  ngx<span class="op">.</span>status <span class="op">=</span> ngx<span class="op">.</span><span class="cn">HTTP_OK</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a>  ngx<span class="op">.</span>say<span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>method <span class="op">=</span> <span class="st">&quot;GET&quot;</span><span class="op">,</span> status <span class="op">=</span> <span class="st">&quot;allowed&quot;</span><span class="op">}))</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a>  <span class="cf">return</span> ngx<span class="op">.</span>exit<span class="op">(</span>ngx<span class="op">.</span><span class="cn">HTTP_OK</span><span class="op">)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="cf">else</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a>  ngx<span class="op">.</span>status <span class="op">=</span> ngx<span class="op">.</span><span class="cn">HTTP_NOT_ALLOWED</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a>  ngx<span class="op">.</span>say<span class="op">(</span>cjson<span class="op">.</span>encode<span class="op">({</span>method <span class="op">=</span> http_method <span class="op">,</span> status <span class="op">=</span> <span class="st">&quot;denied&quot;</span><span class="op">}))</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a>  <span class="cf">return</span> ngx<span class="op">.</span>exit<span class="op">(</span>ngx<span class="op">.</span><span class="cn">HTTP_NOT_ALLOWED</span><span class="op">)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="cf">end</span></span></code></pre></div>
 <h3 id="put-it-into-a-webapp">Put it into a webapp</h3>
 <p>With some initial tests using the snippet above, we settle on the following:</p>
 <pre class="nginx"><code>worker_processes  1;
@@ -104,11 +105,11 @@ http {
     }
 }</code></pre>
 <p>Here is the <code>Dockerfile</code>:</p>
-<div class="sourceCode"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span class="kw">FROM</span> openresty/openresty:alpine-fat
-
-<span class="kw">EXPOSE</span> 8000
-<span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson
-<span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode dockerfile"><code class="sourceCode dockerfile"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="kw">FROM</span> openresty/openresty:alpine-fat</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="kw">EXPOSE</span> 8000</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">RUN</span> /usr/local/openresty/luajit/bin/luarocks install lua-cjson</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a><span class="kw">ADD</span> nginx.conf /usr/local/openresty/nginx/conf/nginx.conf</span></code></pre></div>
 <p>The <code>Makefile</code>:</p>
 <pre><code>build:
         docker build --tag=app:8 --rm=true ./
@@ -195,6 +196,10 @@ Connection: keep-alive
 <h3 id="continuing-on-to-part-8-reading-from-the-postgres1.">Continuing on to <a href="2017-03-08-lua-and-openresty-part-8-reading-from-postgres.html">Part 8, Reading from the Postgres</a>.</h3>
 
         </div>
+
+        <div class="info">
+        </div>
+
         <div id="footer">
             Created with
             <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>

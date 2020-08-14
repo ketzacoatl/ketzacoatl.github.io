@@ -1,0 +1,70 @@
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>How I build and install specific versions of ruby - Spaceship Earth</title>
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+        <link rel="stylesheet" type="text/css" href="../css/syntax.css" />
+        <script async defer data-domain="ketzacoatl.github.io" src="https://plausible.io/js/plausible.js"></script>
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+                <a href="../">\o/</a>
+            </div>
+            <div id="navigation">
+                <a href="../">~</a>
+                <a href="../about.html">About</a>
+                <a href="../inspiration.html">Inspiration</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>How I build and install specific versions of ruby</h1>
+
+            <div class="info">
+    Posted on December 31, 2018
+    
+</div>
+
+<h1 id="how-i-build-and-install-specific-versions-of-ruby">How I build and install specific versions of ruby</h1>
+<p>First, I use <code>ruby-build</code>.</p>
+<h2 id="install-ruby-build">Install ruby-build</h2>
+<h3 id="dependencies">Dependencies:</h3>
+<pre><code>sudo apt-get install -y libreadline-dev</code></pre>
+<h3 id="download-the-source">Download the source:</h3>
+<pre><code>ᐅ git clone https://github.com/rbenv/ruby-build.git
+Cloning into 'ruby-build'...
+remote: Enumerating objects: 29, done.
+remote: Counting objects: 100% (29/29), done.
+remote: Compressing objects: 100% (21/21), done.
+remote: Total 9620 (delta 9), reused 23 (delta 4), pack-reused 9591
+Receiving objects: 100% (9620/9620), 2.03 MiB | 225.00 KiB/s, done.
+Resolving deltas: 100% (6275/6275), done.
+Checking connectivity... done.</code></pre>
+<h3 id="run-the-install-script">Run the install script</h3>
+<pre><code>ᐅ PREFIX=/usr/local sudo ./ruby-build/install.sh</code></pre>
+<h2 id="now-we-can-install-a-specific-version-of-ruby..">Now we can install a specific version of ruby..</h2>
+<p>Got a project that needs some <code>2.3.x</code>? Let’s build <code>2.3.0</code>!</p>
+<pre><code>ᐅ ruby-build 2.3.0 ~/local/ruby-2.3.0
+Downloading ruby-2.3.0.tar.bz2...
+-&gt; https://cache.ruby-lang.org/pub/ruby/2.3/ruby-2.3.0.tar.bz2
+Installing ruby-2.3.0...
+Installed ruby-2.3.0 to /home/user/local/ruby-2.3.0</code></pre>
+
+        </div>
+
+        <div class="info">
+        </div>
+
+        <div id="footer">
+            Created with
+            <a href="https://tmux.github.io/"><img src="../images/tmux-logo.png" /></a>
+            <a href="http://jaspervdj.be/hakyll"><img src="../images/lambda.png" /></a>
+            <a href="https://github.com/ketzacoatl/weblog-src"><img src="../images/octocat-icon.png" /></a>
+        </div>
+    </body>
+</html>
